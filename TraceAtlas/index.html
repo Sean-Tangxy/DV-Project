@@ -42,7 +42,7 @@
       <section class="panel map-panel" aria-labelledby="map-title">
         <div class="head"><div><h2 id="map-title">文件群岛</h2><p id="map-caption"></p></div><div class="panel-tools"><label class="reference-toggle"><input type="checkbox" id="show-refs" checked> 引用</label><label class="reference-toggle"><input type="checkbox" id="show-types" checked> 类型</label><button id="map-fit" title="适配整张地图">适配</button><button id="clear-file" hidden>清除</button><button class="icon-button" data-help="map" aria-label="文件岛图的读法" title="图例与读法">?</button><button class="icon-button" data-zoom aria-label="放大文件岛图" title="放大 / 还原">⤢</button></div></div>
         <div class="map-timeline" aria-label="文件群岛时间轴"><div class="map-time-top"><strong>地图时间</strong><span id="map-time-label">全量</span></div><div class="map-time-row"><button id="map-play" title="播放地图变化">▶</button><div class="map-range-wrap"><input id="map-time" type="range" min="0" max="1" value="1" step="1" aria-label="拖动查看文件群岛变化"><div id="map-time-ticks" class="map-time-ticks" aria-label="时间轴上的测试事件节点"></div></div><select id="map-step" aria-label="时间轴粒度"><option value="activity">地图变化（推荐）</option><option value="all">全部记录</option><option value="session">会话节点</option></select></div><div class="map-time-hint" id="map-time-hint"></div></div>
-        <div class="map-encoding"><div class="map-modes" aria-label="地图编码"><button data-map-mode="structure" aria-pressed="true">结构</button><button data-map-mode="depth" aria-pressed="false">深度 2.5D</button><button data-map-mode="count" aria-pressed="false">数量</button></div><select id="map-links" aria-label="引用连线方式"><option value="bundle">捆绑连线</option><option value="detail">逐条连线</option><option value="focus">仅选中</option></select><span id="map-metric-caption"></span></div>
+        <div class="map-encoding"><div class="map-modes" aria-label="地图编码"><button data-map-mode="structure" aria-pressed="true">结构</button><button data-map-mode="depth" aria-pressed="false">深度 3D</button><button data-map-mode="count" aria-pressed="false">数量</button></div><span id="map-metric-caption"></span></div>
         <div class="plot-scroll map-scroll" id="file-map"></div>
         <div id="map-profile" class="map-profile" aria-label="选中文件的测试构成"></div>
         <div class="foot" id="map-legend"></div>
@@ -68,6 +68,8 @@
   <script src="test-evidence.js"></script>
   <script src="atlas.js"></script>
   <script src="views.js"></script>
+  <script src="map-3d.js"></script>
+  <script src="pytest-depth.js"></script>
   <script src="map-view.js"></script>
   <script src="app.js"></script>
 </body>

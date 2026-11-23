@@ -18,7 +18,7 @@
     "Selecting a file clears reference focus; selecting a record stops playback",
     "STS2: Real map and matrix renderers initialize without missing time formatters",
     "STS2: Structure, depth and count map modes render against the complete dataset",
-    "STS2: All STS2 files and events retained; 193 snapshot links appear after snapshot time; 27 distinct tests stay separate from maximum depth",
+    "STS2: STS2 retains raw history, repacks islands without 14 browser tests, and uses the normalized depth sum and count-based bands for the 27-test product file",
     "STS2: Dragging map time follows the current event in evidence details",
     "STS2: Playback restarts from the end, advances evidence, pauses and resumes with one timer",
     "STS2: Dragging or changing granularity cancels playback; reaching the end stops cleanly",

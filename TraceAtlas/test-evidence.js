@@ -2,6 +2,30 @@
   'use strict';
   const labels=['D0 源码／静态','D1 本地逻辑','D2 替身／进程','D3 真实引擎','D4 界面交互'];
   const testPath=p=>/(?:^|\/)(?:tests?|__tests__|fixtures)(?:\/|$)|(?:^|[\/_.-])(?:test|verify|audit|probe)[_.-]|(?:Test|Verification|Audit|Probe)(?:[A-Z_.]|$)|\.(?:test|spec)\./.test(p);
+  const browserTest=f=>f.side==='test' && /(?:^|\/)browser[_\-.]/i.test(f.path);
+
+  function mapScope(M){
+    const files=new Map([...M.files].filter(([,f])=>!browserTest(f)));
+    const references=M.references.filter(r=>files.has(r.source.toLowerCase())&&files.has(r.target.toLowerCase()));
+    return {files,references};
+  }
+
+  // A shared upper bound over observed sources, independent of the current time or filter.
+  function depthCeiling(scope){
+    const deepest=new Map();
+    for(const [key,file] of scope.files){
+      if(file.side==='test')deepest.set(key,Math.max(0,...file.depthEvidence.map(d=>d.level??0)));
+    }
+    const testsByProduct=new Map();
+    for(const edge of scope.references){
+      const source=edge.source.toLowerCase(),target=edge.target.toLowerCase();
+      if(!deepest.has(source)||deepest.has(target))continue;
+      if(!testsByProduct.has(target))testsByProduct.set(target,new Set());
+      testsByProduct.get(target).add(source);
+    }
+    return Math.max(1,...[...testsByProduct.values()].map(sources=>
+      [...sources].reduce((sum,key)=>sum+deepest.get(key),0)));
+  }
   function classify(text){
     // Classify source only. Comments, result logs and filenames are not setup evidence.
     const lines=String(text??'').split(/\r?\n/).filter(x=>!/^\s*(?:#|\/\/|\*|-|\+\+\+|@@)/.test(x)).map(x=>x.replace(/^\+/,'').trim());
@@ -55,10 +79,10 @@
     return observations.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)).at(-1)??{level:null,reason:'当前时间无可用测试源码',hits:[]};
   }
   function refs(M,info,eventIndex,session){
-    return M.references.map(r=>({...r,evidence:r.evidence.filter(ev=>ev.event?(eventIndex.get(ev.event)??Infinity)<=info.index&&(session==='all'||M.byId.get(ev.event)?.session===session):session==='all'&&Date.parse(ev.at)<=Date.parse(info.event?.time))})).filter(r=>r.evidence.length);
+    return (M.mapScope?.references??M.references).map(r=>({...r,evidence:r.evidence.filter(ev=>ev.event?(eventIndex.get(ev.event)??Infinity)<=info.index&&(session==='all'||M.byId.get(ev.event)?.session===session):session==='all'&&Date.parse(ev.at)<=Date.parse(info.event?.time))})).filter(r=>r.evidence.length);
   }
   function metrics(M,info,eventIndex,session='all'){
-    const visible=new Map([...M.files].filter(([,f])=>present(M,f,info,eventIndex,session)));
+    const visible=new Map([...(M.mapScope?.files??M.files)].filter(([,f])=>present(M,f,info,eventIndex,session)));
     const activeRefs=refs(M,info,eventIndex,session).filter(e=>visible.has(e.source.toLowerCase())&&visible.has(e.target.toLowerCase()));
     const stats=new Map([...visible].map(([key,f])=>[key,{file:f,depth:depth(f,info,eventIndex,session,M),sources:new Set(),targets:new Set(),histogram:[0,0,0,0,0,0],count:0,sum:0,max:null}]));
     for(const edge of activeRefs){
@@ -73,5 +97,5 @@
     }
     return {stats,activeRefs,visible};
   }
-  root.TestEvidence={labels,testPath,classify,attach,present,depth,refs,metrics};
+  root.TestEvidence={labels,testPath,classify,attach,mapScope,depthCeiling,present,depth,refs,metrics};
 })(globalThis);

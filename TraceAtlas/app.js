@@ -1,10 +1,19 @@
 (function () {
   'use strict';
   const datasetKey=new URLSearchParams(globalThis.location?.search??'').get('dataset')==='sts2'?'sts2':'sszx';
-  const V = VerificationModel, M = V.build(datasetKey==='sts2'?STS2_DATA:SSZX_DATA), $ = id => document.getElementById(id);
-  TestEvidence.attach(M);
-  M.references=ReferenceAtlas.extract(M);
-  M.atlas=ReferenceAtlas.layout(M,M.references);
+  const V = VerificationModel, $ = id => document.getElementById(id);
+  const datasets={sszx:SSZX_DATA,sts2:STS2_DATA};
+  function prepareModel(data){
+    const model=V.build(data);
+    TestEvidence.attach(model);
+    model.references=ReferenceAtlas.extract(model);
+    model.mapScope=TestEvidence.mapScope(model);
+    return model;
+  }
+  const M=prepareModel(datasets[datasetKey]);
+  const other=datasetKey==='sts2'?'sszx':'sts2';
+  const depthCeiling=Math.max(TestEvidence.depthCeiling(M.mapScope),TestEvidence.depthCeiling(prepareModel(datasets[other]).mapScope));
+  M.atlas=ReferenceAtlas.layout(M.mapScope,M.mapScope.references);
   // The map timeline uses recorded event order as the finest reproducible unit.
   // Timestamps are shown as context, but may be cache anchors rather than execution bounds.
   const chronological=[...M.events].sort((a,b)=>{
@@ -44,12 +53,32 @@
   const visibleChecks = () => M.checks.filter(r=>eventVisible(r.event)&&(state.kind==='all'||r.kind===state.kind));
   const activeRun = () => M.runById.get(state.run);
   const fileOf = p => M.files.get(p.toLowerCase());
-  const mapSequence = () => mapSteps[state.mapStep]??mapSteps.activity;
+  const depthSequences=new Map();
+  function mapSequence(){
+    const base=mapSteps[state.mapStep]??mapSteps.activity;
+    const data=globalThis.PYTEST_DEPTH;
+    if(datasetKey!=='sts2'||state.mapMode!=='depth'||!data)return base;
+    const key=state.mapStep+'|'+state.session;
+    if(!depthSequences.has(key)){
+      const extra=[];
+      function marker(turn,time,kind,index,source){
+        const session=M.byId.get(turn+':turn')?.session??source?.match(/[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}/)?.[0];
+        extra.push({depthMarker:true,id:turn+':'+kind+':'+index,turn,time,session,kind,index,checks:[]});
+      }
+      for(const i of PytestDepth.navigation(M).keys()){
+        const c=data.claims[i];marker(c.turn_id,c.at,'claim',i,c.source?.source_id);
+      }
+      for(const [id,r] of Object.entries(data.runs))marker(r[0],r[4],'pytest',id);
+      depthSequences.set(key,[...base,...extra].filter(e=>state.session==='all'||e.session===state.session)
+        .sort((a,b)=>Date.parse(a.time)-Date.parse(b.time)));
+    }
+    return depthSequences.get(key);
+  }
   const mapCutoff = () => {
     const seq=mapSequence();
     if (!seq.length) return chronological.length-1;
     const event=seq[Math.max(0,Math.min(state.mapCursor,seq.length-1))];
-    return eventIndex.get(event.id)??chronological.length-1;
+    return eventIndex.get(event.id)??chronological.findLastIndex(e=>Date.parse(e.time)<=Date.parse(event.time));
   };
   const mapDate = index => {
     const e=chronological[Math.max(0,Math.min(index,chronological.length-1))];
@@ -57,7 +86,7 @@
   };
   const mapCutoffInfo = () => {
     const seq=mapSequence(), cursor=Math.max(0,Math.min(state.mapCursor,Math.max(0,seq.length-1))), index=mapCutoff();
-    return {seq,cursor,index,event:chronological[index],label:seq.length?`${cursor+1} / ${seq.length}`:'无地图事件'};
+    return {seq,cursor,index,event:seq[cursor],label:seq.length?`${cursor+1} / ${seq.length}`:'无地图事件'};
   };
   function renderSummary() {
     const es = M.events.filter(e=>state.session==='all'||state.session===e.session), checks = visibleChecks();
@@ -188,7 +217,8 @@
     svg+='</svg></div>';
     return svg;
   }
-  function viewContext() {return {M,state,activate,render,visibleChecks,fingerprint,selectFile,stopMapPlayback,mapCutoff,mapCutoffInfo,mapDate,chronological,eventIndex};}
+  function seekMap(cursor){stopMapPlayback();state.file=null;state.edge=null;state.mapCursor=cursor;renderMapTime();}
+  function viewContext() {return {M,state,activate,render,visibleChecks,fingerprint,selectFile,stopMapPlayback,mapCutoff,mapCutoffInfo,mapDate,chronological,eventIndex,depthCeiling,seekMap};}
   function renderCompare() {AtlasViews.heatmap(viewContext());}
   function syncMapTimeline() {
     const range=$('map-time'),step=$('map-step'),labelEl=$('map-time-label'),hint=$('map-time-hint'),play=$('map-play'),ticks=$('map-time-ticks');
@@ -197,13 +227,19 @@
     step.value=state.mapStep;range.max=String(max);range.value=String(Math.min(state.mapCursor,max));
     play.disabled=seq.length<2;
     if(ticks){
-      const hasTest=e=>e.checks.length>0 || state.mapStep==='session' && (M.sessions.get(e.session)?.events.some(x=>x.checks.length)??false);
+      const hasTest=e=>!e.depthMarker && (e.checks.length>0 || state.mapStep==='session' && (M.sessions.get(e.session)?.events.some(x=>x.checks.length)??false));
       const marks=seq.map((e,i)=>({e,i})).filter(x=>hasTest(x.e));
       ticks.innerHTML=marks.map(({e,i})=>'<span class="map-time-tick" style="left:'+((max?i/max*100:0).toFixed(3))+'%" title="'+E(ref(e)+' · '+e.checks.length+' 项检查')+'" aria-label="'+E(ref(e)+' · 测试事件')+'"></span>').join('');
       ticks.setAttribute('aria-label','时间轴上的测试事件节点，共 '+marks.length+' 个');
     }
     labelEl.textContent=info.label+(info.event?' · '+mapDate(info.index):'');
-    hint.textContent=info.event?'拖动查看累计出现过程；蓝色刻度表示发生了可识别测试的记录；当前点对应 '+ref(info.event):'没有可用的地图事件';
+    hint.textContent=info.event?'拖动查看累计出现过程；蓝色刻度表示发生了可识别测试的记录；当前点对应 '+(info.event.depthMarker?'pytest':ref(info.event)):'没有可用的地图事件';
+    if(datasetKey==='sts2'&&state.mapMode==='depth'&&globalThis.PYTEST_DEPTH){
+      labelEl.textContent=info.label+' · '+(info.event?.time??'').replace('T',' ').slice(0,19);
+      hint.textContent='蓝色刻度表示 AI 的测试通过声明；文件底座按当时已有记录显示。';
+      ticks.innerHTML=seq.map((e,i)=>e.kind==='claim'?'<span class="map-time-tick" style="left:'+100*i/(max||1)+'%" title="'+PYTEST_DEPTH.claims[e.index].reported_passes+' passed"></span>':'').join('');
+      ticks.setAttribute('aria-label','测试通过声明');
+    }
     play.textContent=state.mapPlaying?'暂停':'播放';
     play.title=state.mapPlaying?'暂停地图变化':'播放地图变化';
   }
@@ -218,7 +254,8 @@
     // Keep a selected file/reference as the detail focus; otherwise follow
     // the event at the current time instead of leaving stale evidence open.
     const event=mapCutoffInfo().event;
-    state.selected=state.file||state.edge?.length?null:event?.id??null;
+    state.selected=state.file||state.edge?.length?null:event?.depthMarker?event.turn+':turn':event?.id??null;
+    if(!M.byId.has(state.selected))state.selected=null;
     state.run=event?.checks[0]?.id??null;
     renderTimeline();renderCompare();renderMap();renderRecords();renderDetail();
   }
@@ -262,7 +299,16 @@
       const metrics=TestEvidence.metrics(M,mapCutoffInfo(),eventIndex,state.session),s=metrics.stats.get(state.file);
       const related=s?[...(file.side==='test'?s.targets:s.sources)]:[];
       const depth=s?.depth;
-      const metricsHtml='<div class="file-metrics"><h3>'+E(file.side==='test'?'测试文件':'项目文件')+'</h3>'+(s?'<div class="detail-grid"><div class="fact"><span>'+(file.side==='test'?'直接关联项目文件':'关联测试文件（去重）')+'</span>'+s.count+'</div><div class="fact"><span>最高可识别源码层级</span>'+(s.max==null?'未知':'D'+s.max)+'</div></div>':'<p>当前时间尚无此文件的可见证据。</p>')+(file.side==='product'&&s?'<p>深度分布：'+s.histogram.map((n,i)=>n?(i===5?'未知':'D'+i)+' × '+n:'').filter(Boolean).join(' · ')+'</p><p class="section-note">层级和 '+s.sum+' 仅作辅助统计；不表示测试质量、断言覆盖或通过数量。</p>':'')+(file.side==='test'&&depth?'<p>'+E(depth.reason)+'</p><pre>'+E(depth.hits.join('\n')||'缺少可识别源码')+'</pre><p class="section-note">'+E(depth.source??'无来源')+(depth.revision?' · Git '+E(depth.revision.slice(0,10)):'')+'</p>':'')+'<div class="file-list">'+related.map(key=>'<button data-detail-file="'+E(key)+'">'+E(M.files.get(key).path)+'</button>').join('')+'</div></div>';
+      const isTest=file.side==='test';
+      const scopeNote=M.mapScope.files.has(state.file)?'当前时间尚无此文件的可见证据。':'浏览器测试保留在原始记录中，文件地图已排除该测试。';
+      const value=isTest?(s?.max==null?'未知':'D'+s.max):s?.sum+' / '+depthCeiling;
+      const distribution=s?.histogram.map((n,i)=>n?(i===5?'未知':'D'+i)+' × '+n:'').filter(Boolean).join(' · ');
+      const metricsHtml='<div class="file-metrics"><h3>'+(isTest?'测试文件':'项目文件')+'</h3>'+
+        (s?'<div class="detail-grid"><div class="fact"><span>'+(isTest?'直接关联项目文件':'关联测试文件（去重）')+'</span>'+s.count+
+          '</div><div class="fact"><span>'+(isTest?'可识别源码层级':'深度和 / 归一化上限')+'</span>'+value+'</div></div>':'<p>'+scopeNote+'</p>')+
+        (!isTest&&s?'<p>'+(distribution?'深度分布：'+distribution:'无可见关联测试')+'</p>':'')+
+        (isTest&&depth?'<p>'+E(depth.reason)+'</p><pre>'+E(depth.hits.join('\n')||'缺少可识别源码')+'</pre><p class="section-note">'+E(depth.source??'无来源')+(depth.revision?' · Git '+E(depth.revision.slice(0,10)):'')+'</p>':'')+
+        '<div class="file-list">'+related.map(key=>'<button data-detail-file="'+E(key)+'">'+E(M.files.get(key).path)+'</button>').join('')+'</div></div>';
       const linked=[...file.events.keys()].map(id=>M.byId.get(id)).filter(x=>before(x.id)&&(state.session==='all'||x.session===state.session));
       $('detail-caption').textContent=file.path+' · '+(M.fileClasses[file.classification]??'类型未判定');
       $('detail').innerHTML='<div class="detail">'+metricsHtml+'<p>'+E(asRoles(file,linked.map(e=>e.id)))+' · '+linked.length+' 条关联记录</p><div class="file-list">'+linked.map(x=>'<button data-detail-event="'+x.id+'">'+E(ref(x))+' · '+E(cut(x.checks.map(r=>r.label).join(' / ')||x.summary,100))+'</button> ').join('')+'</div></div>';
@@ -310,7 +356,6 @@
   $('project').textContent=M.data.project;
   $('dataset-select').value=datasetKey;
   $('dataset-select').onchange=e=>{const url=new URL(location.href);url.searchParams.set('dataset',e.target.value);location.href=url.href;};
-  $('map-links').onchange=renderMap;
   document.querySelectorAll('[data-map-mode]').forEach(el=>el.onclick=()=>{state.mapMode=el.dataset.mapMode;state.mapBox=null;renderMap();});
   $('session').innerHTML='<option value="all">全项目 · '+M.sessions.size+' 个会话</option>'+[...M.sessions.values()].map(s=>'<option value="'+E(s.id)+'">'+E(s.code+' · '+cut(label(s),22))+'</option>').join('');
   $('kind').innerHTML='<option value="all">全部</option>'+Object.entries(V.kinds).map(([key,label])=>'<option value="'+key+'">'+E(label)+'</option>').join('');
@@ -415,16 +460,16 @@
     ]),
     map:'<h3>文件群岛：测试如何关联项目</h3><p>每个小六边形是一个文件。左侧为测试文件，右侧为项目文件，各自按目录聚岛。滚轮缩放、拖动平移，⤢ 放大；地图时间轴控制证据可见的时间截面。</p>'+helpTable([
       ['结构','二维文件布局。测试源码按可识别层级着色，项目文件使用浅灰蓝。'],
-      ['深度 2.5D','测试柱高表示当前最新可见源码的层级 D0—D4；项目柱高表示直接关联测试文件的最高层级。未知用斜纹；D0 有低平台，区别于未知。高度不累加测试数量。'],
+      ['深度 3D','测试柱高表示当前可见源码层级。项目柱高表示去重关联测试的已知深度和，两套数据共用固定上限。浏览器测试在布局和统计前排除。'],
       ['数量','测试文件内的数字是直接关联项目文件数；项目文件内的数字是不同关联测试文件数。重复引用、重复运行均不重复计数。'],
-      ['外环与底部条带','项目文件外环表示 D0—D4 与未知测试文件的数量占比。底部条带显示全体测试，点项目文件后切换为该文件的关联测试构成。'],
-      ['捆绑连线','同一有向目录对的文件引用合为一束。线宽与数字表示不同文件对数；点击查看原始片段。点文件后展开其细线，也可切到逐条连线或仅选中。'],
+      ['柱身分段与底部条带','项目柱各段从下到上依 D0—D4、未知排列，段高占比按测试文件数计算。底部条带默认显示全体测试，点项目文件后显示其关联测试构成。'],
+      ['底面连线与柱顶箭头','岛屿底面之间的线显示有向目录对的去重文件引用对数，点击可查看证据。选中文件后才显示它的逐条引用箭头。3D 中，箭头从来源柱顶竖直向上，再落到目标柱顶。'],
       ['D0／D1／D2','D0 源码／静态读取断言；D1 本地逻辑断言；D2 替身设置或子进程调用和断言。子进程本身不证明是真实引擎。'],
       ['D3／D4','D3 引擎接口、启动／动作调用和断言同时可见；D4 界面自动化调用和断言。D4 可能测试开发仪表盘，不能自动解释为游戏端到端。'],
       ['时间与快照','历史片段按记录时间进入；Git 源码和引用按快照时间进入。不能用最新快照回填早期测试深度。'],
-      ['边框','紫边为可见编辑；蓝紫粗边为当前检查的明确目标；黄色边为诊断位置；深色粗边为当前选中文件。'],
+      ['边框','白边是普通文件的默认轮廓。紫边为可见编辑，蓝紫边为当前检查的明确目标，黄色边为诊断位置。深色边和柱身高亮表示选中文件。'],
       ['右侧证据','文件数量、关联文件、深度规则命中的源码、Git 版本或历史记录；选择连线核查调用片段。']
-    ])+'<p class="guide-note">深度是可解释的源码层级线索，不保证实际执行、质量或通过；静态引用不等于动态覆盖。深度之和仅保留在详情作为辅助指标。</p>'
+    ])+'<p class="guide-note">深度和来自已知源码层级，未知深度只参与构成占比。静态引用和深度线索不代表执行覆盖、质量或通过。</p>'
   });
   function openGuide(key='overview') {
     $('guide-content').innerHTML=guide[key]??guide.overview;

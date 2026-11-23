@@ -157,14 +157,14 @@ try{
     const cell=matrix.querySelector('[data-heat-run]');
     cell.dispatchEvent(new MouseEvent('click',{bubbles:true}));
     const matrixSelect=workbench.state.run===cell.dataset.heatRun;
-    const link=document.querySelector('[data-island-edge]');
+    const link=document.querySelector('[data-island-link]');
     link.dispatchEvent(new MouseEvent('click',{bubbles:true}));
     const references=Boolean(workbench.state.edge?.length)&&document.querySelector('#detail').textContent.includes('片段中的引用');
     const input=document.getElementById('show-refs');
     input.checked=false;input.dispatchEvent(new Event('change'));
-    const linksHidden=document.querySelectorAll('[data-island-edge]').length===0;
+    const linksHidden=document.querySelectorAll('[data-island-link]').length===0;
     input.checked=true;input.dispatchEvent(new Event('change'));
-    const linksRestored=document.querySelectorAll('[data-island-edge]').length>0;
+    const linksRestored=document.querySelectorAll('[data-island-link]').length>0;
     const svg=document.querySelector('#file-map svg'),before=svg.getAttribute('viewBox');
     const box=svg.getBoundingClientRect();
     svg.dispatchEvent(new WheelEvent('wheel',{deltaY:-100,clientX:box.x+box.width/2,clientY:box.y+box.height/2,bubbles:true,cancelable:true}));
