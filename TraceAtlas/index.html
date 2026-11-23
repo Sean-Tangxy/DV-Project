@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TraceAtlas · 验证图谱</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="redesign.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">●</div><div><h1>TraceAtlas</h1><p>验证图谱</p></div></div>
+    <div class="summary" id="summary" aria-label="数据概览"></div>
+    <div class="top-right"><select id="dataset-select" aria-label="选择数据集"><option value="sszx">sszx_vs_zz</option><option value="sts2">STS2 Agent</option></select><span id="project"></span><span class="live">离线导出</span><button id="about-button" aria-label="阅读指南">阅读指南</button></div>
+  </header>
+  <main>
+    <section class="panel timeline-panel" aria-labelledby="timeline-title">
+      <div class="head">
+        <div><h2 id="timeline-title">检查演变</h2><p id="timeline-caption">按会话查看编辑、检查和其他执行记录</p></div>
+        <div class="controls">
+          <label>会话 <select id="session" aria-label="选择会话"></select></label>
+          <label>横轴 <select id="axis" aria-label="时间轴口径"><option value="order">会话内顺序</option><option value="time">记录时间</option></select></label>
+          <label>检查 <select id="kind" aria-label="检查类型"></select></label>
+          <button id="reset">重置视图</button>
+          <button class="icon-button" data-help="timeline" aria-label="检查演变图的读法" title="图例与读法">?</button>
+          <button class="icon-button" data-zoom aria-label="放大检查演变" title="放大 / 还原">⤢</button>
+        </div>
+      </div>
+      <div class="plot-scroll" id="plot"></div>
+      <div class="foot" id="timeline-legend"></div>
+      <details class="events-panel" id="records">
+        <summary>查找原始记录 <span id="record-count"></span></summary>
+        <div class="record-controls"><input type="search" id="search" placeholder="按记录号、工具、命令、输出或文件检索" aria-label="搜索原始记录"><button id="prev-page">上一页</button><span id="page"></span><button id="next-page">下一页</button></div>
+        <div id="event-list"></div>
+      </details>
+    </section>
+    <div class="workbench">
+      <section class="panel compare-panel" aria-labelledby="compare-title">
+        <div class="head"><div><h2 id="compare-title">运行对照</h2><p id="compare-caption">相同目标的各次运行按记录顺序排布</p></div><div class="panel-tools"><button id="clear-compare" hidden>清除对照</button><button class="icon-button" data-help="compare" aria-label="运行对照图的读法" title="图例与读法">?</button><button class="icon-button" data-zoom aria-label="放大运行对照" title="放大 / 还原">⤢</button></div></div>
+        <div id="compare"></div>
+      </section>
+      <section class="panel map-panel" aria-labelledby="map-title">
+        <div class="head"><div><h2 id="map-title">文件群岛</h2><p id="map-caption"></p></div><div class="panel-tools"><label class="reference-toggle"><input type="checkbox" id="show-refs" checked> 引用</label><label class="reference-toggle"><input type="checkbox" id="show-types" checked> 类型</label><button id="map-fit" title="适配整张地图">适配</button><button id="clear-file" hidden>清除</button><button class="icon-button" data-help="map" aria-label="文件岛图的读法" title="图例与读法">?</button><button class="icon-button" data-zoom aria-label="放大文件岛图" title="放大 / 还原">⤢</button></div></div>
+        <div class="map-timeline" aria-label="文件群岛时间轴"><div class="map-time-top"><strong>地图时间</strong><span id="map-time-label">全量</span></div><div class="map-time-row"><button id="map-play" title="播放地图变化">▶</button><div class="map-range-wrap"><input id="map-time" type="range" min="0" max="1" value="1" step="1" aria-label="拖动查看文件群岛变化"><div id="map-time-ticks" class="map-time-ticks" aria-label="时间轴上的测试事件节点"></div></div><select id="map-step" aria-label="时间轴粒度"><option value="activity">地图变化（推荐）</option><option value="all">全部记录</option><option value="session">会话节点</option></select></div><div class="map-time-hint" id="map-time-hint"></div></div>
+        <div class="map-encoding"><div class="map-modes" aria-label="地图编码"><button data-map-mode="structure" aria-pressed="true">结构</button><button data-map-mode="depth" aria-pressed="false">深度 2.5D</button><button data-map-mode="count" aria-pressed="false">数量</button></div><select id="map-links" aria-label="引用连线方式"><option value="bundle">捆绑连线</option><option value="detail">逐条连线</option><option value="focus">仅选中</option></select><span id="map-metric-caption"></span></div>
+        <div class="plot-scroll map-scroll" id="file-map"></div>
+        <div id="map-profile" class="map-profile" aria-label="选中文件的测试构成"></div>
+        <div class="foot" id="map-legend"></div>
+      </section>
+    </div>
+    <section class="panel detail-panel" aria-labelledby="detail-title">
+      <div class="head"><div><h2 id="detail-title">证据详情</h2><p id="detail-caption">选择记录、运行或文件后查看来源</p></div><div class="panel-tools"><button class="icon-button" data-help="detail" aria-label="证据详情的读法" title="图例与读法">?</button><button class="icon-button" data-zoom aria-label="放大证据详情" title="放大 / 还原">⤢</button></div></div>
+      <div id="detail"></div>
+    </section>
+    <dialog id="about">
+      <form method="dialog"><div class="head"><h2>阅读指南</h2><button autofocus>关闭</button></div></form>
+      <nav class="guide-tabs" aria-label="指南章节">
+        <button data-guide="overview">从哪里开始</button><button data-guide="timeline">检查演变</button><button data-guide="compare">运行对照</button><button data-guide="map">文件岛图</button><button data-guide="detail">证据详情</button>
+      </nav>
+      <div class="guide-content" id="guide-content"></div>
+    </dialog>
+    <footer id="footer"></footer>
+  </main>
+  <noscript>请启用 JavaScript 后重新打开页面。</noscript>
+  <script src="dataset.js"></script>
+  <script src="dataset-sts2.js"></script>
+  <script src="model.js"></script>
+  <script src="test-evidence.js"></script>
+  <script src="atlas.js"></script>
+  <script src="views.js"></script>
+  <script src="map-view.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "tests": [
+    "Every exported record and session is retained",
+    "Compilation does not inherit wrapper exit=0",
+    "One command can contain two independent compilation outcomes",
+    "Pipeline nested success does not inherit outer success",
+    "A requested recompilation is not counted as passed",
+    "Reading verification source does not execute a test",
+    "Unknown versions never compare as equal",
+    "Every reference has source evidence and known endpoint files",
+    "Reference layout preserves every file without overlapping islands",
+    "Real map and matrix renderers initialize without missing time formatters",
+    "Structure, depth and count map modes render against the complete dataset",
+    "Dragging map time follows the current event in evidence details",
+    "Playback restarts from the end, advances evidence, pauses and resumes with one timer",
+    "Dragging or changing granularity cancels playback; reaching the end stops cleanly",
+    "File evidence stays focused and updates to the chosen historical cutoff",
+    "Selecting a file clears reference focus; selecting a record stops playback",
+    "STS2: Real map and matrix renderers initialize without missing time formatters",
+    "STS2: Structure, depth and count map modes render against the complete dataset",
+    "STS2: All STS2 files and events retained; 193 snapshot links appear after snapshot time; 27 distinct tests stay separate from maximum depth",
+    "STS2: Dragging map time follows the current event in evidence details",
+    "STS2: Playback restarts from the end, advances evidence, pauses and resumes with one timer",
+    "STS2: Dragging or changing granularity cancels playback; reaching the end stops cleanly",
+    "STS2: File evidence stays focused and updates to the chosen historical cutoff",
+    "STS2: Selecting a file clears reference focus; selecting a record stops playback"
+  ],
+  "counts": {
+    "events": 858,
+    "sessions": 17,
+    "checks": 41,
+    "files": 219,
+    "references": 41,
+    "islands": 19,
+    "islandLinks": 13
+  },
+  "browser": null
+}
