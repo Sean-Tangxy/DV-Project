@@ -15,7 +15,7 @@
           const item={key,identity,file,level:Number.isInteger(c[1])?c[1]:null,targets:c[2]??{},version:c[3]??null,tier,basis:tierIndex(tier),result:result(tier),index};
           items.set(key,item);return item;
         });
-        runs.push({id,turn:r[0],session:sessions.get(r[0]),start:r[1],at:r[4]??r[1],time:Date.parse(r[4]??r[1]),missing:r[3]??0,items:entries,unit:'instance',event:null});
+        runs.push({id,turn:r[0],session:sessions.get(r[0]),start:r[1],at:r[4]??r[1],time:Date.parse(r[4]??r[1]),missing:r[3]??0,reported:r[5],items:entries,unit:'instance',event:null});
       }
       const known=new Set(runs.map(r=>r.id));
       raw.claims.forEach((c,i)=>{

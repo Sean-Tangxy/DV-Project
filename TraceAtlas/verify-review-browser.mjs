@@ -24,21 +24,35 @@ try{
  const layouts=[];
  for(const [width,height]of [[1600,1000],[1440,900],[1366,768],[1280,720]]){
   await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait(170);
+  assert.ok(await evaluate(`(()=>{const w=researchWorkspace, counts=new Map();for(const r of w.data.runs)counts.set(r.turn,(counts.get(r.turn)||0)+1);const c=w.data.claims.reduce((a,b)=>(counts.get(a.turn_id)||0)>(counts.get(b.turn_id)||0)?a:b);w.selectClaim(c.id);const host=document.querySelector('#turn-detail'),box=host.getBoundingClientRect(),pies=[...host.querySelectorAll('.cycle-pie')];return pies.length===counts.get(c.turn_id)&&pies.every(p=>{const r=p.getBoundingClientRect();return r.width>=6&&r.bottom<=box.bottom+1&&r.right<=box.right+1})&&host.scrollHeight<=host.clientHeight+1})()`),'Largest test turn fits the panel');
   const layout=await evaluate(`({width:innerWidth,height:innerHeight,overflowX:document.documentElement.scrollWidth>innerWidth,overflowY:document.documentElement.scrollHeight>innerHeight,panels:[...document.querySelectorAll('.research-grid>.panel')].map(p=>{const r=p.getBoundingClientRect();return {name:p.querySelector('h2').textContent,x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right};})})`);
   assert.equal(layout.overflowX,false);assert.equal(layout.overflowY,false);for(const p of layout.panels){assert.ok(p.width>0&&p.height>0);assert.ok(p.right<=width+1&&p.bottom<=height+1,p.name+' stays in viewport');}layouts.push(layout);
  }
  tests.push('Five analysis regions remain within landscape viewport at four desktop sizes');
  await call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});await wait(180);
  const capture=async name=>{const shot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});writeFileSync(join(target,name),Buffer.from(shot.data,'base64'));};
+ await evaluate(`document.getElementById('review-reset').click()`);
  await capture('review-overview.png');
  const initial=await evaluate(`({runs:researchWorkspace.data.runs.length,claims:researchWorkspace.data.claims.length,entries:researchWorkspace.aggregate().rows.length,files:document.querySelectorAll('#file-map [data-file]').length})`);
  assert.equal(initial.claims,235);assert.equal(initial.entries,41168);
  tests.push('Entire project dataset loads without a preselected case');
- await evaluate(`document.querySelector('[data-depth-filter="1"][data-basis-filter="1"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`);
- assert.deepEqual(await evaluate('({level:researchWorkspace.view.level,basis:researchWorkspace.view.basis})'),{level:1,basis:1});
- assert.ok(await evaluate(`researchWorkspace.aggregate().filtered.every(x=>x.item.level===1&&x.item.basis===1)`));
- await evaluate(`document.getElementById('clear-filter').click()`);
- tests.push('Composition filter changes the same instance subset used by the map');
+ await evaluate(`researchWorkspace.selectClaim(researchWorkspace.data.claims.find(c=>c.reported_passes===171).id)`);
+ assert.ok(await evaluate(`document.querySelector('#turn-detail').textContent.includes('171 passed')`));
+ tests.push('Turn details retain the selected declaration and reported count');
+ assert.ok(await evaluate(`[...document.querySelector('#turn-choice').options].filter(o=>o.value).every(o=>researchWorkspace.data.claims.some(c=>c.turn_id===o.value))`));
+ const cycle=await evaluate(`document.querySelector('[data-turn-run]').dataset.turnRun`);
+ await evaluate(`document.querySelector('[data-turn-run]').click()`);
+ assert.deepEqual(await evaluate('researchWorkspace.view.runIds'),[cycle]);
+ assert.ok(await evaluate(`document.querySelector('.cycle-card[aria-pressed=true] .cycle-pie')!==null`));
+ await evaluate(`document.querySelector('#previous-dialogue').click()`);
+ assert.ok(await evaluate(`document.querySelector('#return-dialogue')&&document.querySelectorAll('.turn-disclosure:not([open])').length===2`));
+ for(const id of ['turn-prompt','turn-reply']){
+   assert.ok(await evaluate(`(()=>{const section=document.getElementById('${id}');section.querySelector('summary').click();return section.open&&section.querySelector('p').innerText.trim().length>0})()`));
+   await evaluate(`document.querySelector('#${id} summary').click()`);
+ }
+ await evaluate(`while(!document.querySelector('#previous-dialogue').disabled)document.querySelector('#previous-dialogue').click();document.querySelector('#return-dialogue').click()`);
+ assert.deepEqual(await evaluate('researchWorkspace.view.runIds'),[cycle]);
+ tests.push('Declaration-only selector, cycle pie navigation and bounded conversation history');
  await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
  assert.ok(await evaluate(`researchWorkspace.aggregate().selected.length===1&&document.getElementById('detail').textContent.includes('身份条目')`));
  await evaluate(`document.querySelector('[data-map-mode="depth"]').click()`);await wait(150);
@@ -57,20 +71,15 @@ try{
  assert.equal(await evaluate('researchWorkspace.view.runIds[0]'),playOne);
  tests.push('Playback advances through runs and pause cancels pending advance');
  await evaluate(`document.getElementById('review-reset').click()`);
- const header=await evaluate(`(()=>{const canvas=document.querySelector('#evolution canvas'),r=canvas.getBoundingClientRect();return {x:r.x+163,y:r.y+15};})()`);
- for(const type of ['mousePressed','mouseReleased'])await call('Input.dispatchMouseEvent',{type,x:header.x,y:header.y,button:'left',clickCount:1,modifiers:type==='mousePressed'?8:8});
- assert.ok(await evaluate('Boolean(researchWorkspace.view.pin)'));
- tests.push('Shift-click matrix header selects comparison A');
- await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs[1].id)`);
- assert.ok(await evaluate(`document.getElementById('comparison').textContent.includes('共同身份')`));
- tests.push('A/B comparison displays identity intersection and differences');
+ await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
  const file=await evaluate(`researchWorkspace.aggregate().rows.find(x=>researchWorkspace.model.atlas.positions.has(x.item.file.toLowerCase()))?.item.file.toLowerCase()`);
  if(file){await evaluate('researchWorkspace.selectFile('+JSON.stringify(file)+')');assert.ok(await evaluate(`document.getElementById('detail-kind').textContent==='文件'`));tests.push('File selection updates the same-unit evidence inspector');}
  await evaluate(`document.getElementById('review-reset').click();document.querySelector('[data-map-mode="structure"]').click()`);
- const expansion=await evaluate(`(()=>{const r=document.querySelector('#evolution canvas').getBoundingClientRect();return {x:r.x+20,y:r.y+50,before:document.querySelector('.matrix-stage').offsetHeight};})()`);
- for(const type of ['mousePressed','mouseReleased'])await call('Input.dispatchMouseEvent',{type,x:expansion.x,y:expansion.y,button:'left',clickCount:1});
- assert.ok(await evaluate('document.querySelector(".matrix-stage").offsetHeight')>expansion.before);
- tests.push('Clicking a file row expands function and parameter identities in the matrix');
+ await evaluate(`const w=researchWorkspace;const key=w.model.atlas.positions.keys().next().value;w.selectFile(key);document.querySelector('#agent-input').value='草稿'`);
+ assert.ok(await evaluate(`document.querySelector('.file-chip').textContent.includes(researchWorkspace.state.file.split('/').pop())||document.querySelector('.file-chip').textContent.toLowerCase().includes(researchWorkspace.state.file)`));
+ await evaluate(`document.querySelector('.file-chip').click()`);
+ assert.ok(await evaluate(`!researchWorkspace.state.file&&document.querySelector('#agent-input').value==='草稿'`));
+ tests.push('File context bubble follows map selection and clearing it preserves the draft');
  const brush=await evaluate(`(()=>{const r=document.getElementById('time-overview').getBoundingClientRect();return {x:r.x+r.width*.25,end:r.x+r.width*.6,y:r.y+r.height*.5};})()`);
  await call('Input.dispatchMouseEvent',{type:'mousePressed',x:brush.x,y:brush.y,button:'left',clickCount:1});
  await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:brush.end,y:brush.y,button:'left',buttons:1});

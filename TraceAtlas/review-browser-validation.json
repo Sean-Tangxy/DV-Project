@@ -2,15 +2,14 @@
   "tests": [
     "Five analysis regions remain within landscape viewport at four desktop sizes",
     "Entire project dataset loads without a preselected case",
-    "Composition filter changes the same instance subset used by the map",
+    "Turn details retain the selected declaration and reported count",
+    "Declaration-only selector, cycle pie navigation and bounded conversation history",
     "Selecting a run and switching to 3D renders coordinated map and inspector",
     "Declaration without candidates stays visible and does not display all runs as its evidence",
     "Time range selection reduces linked run scope",
     "Playback advances through runs and pause cancels pending advance",
-    "Shift-click matrix header selects comparison A",
-    "A/B comparison displays identity intersection and differences",
     "File selection updates the same-unit evidence inspector",
-    "Clicking a file row expands function and parameter identities in the matrix",
+    "File context bubble follows map selection and clearing it preserves the draft",
     "Dragging the actual overview applies a shared time interval",
     "SSZX opens all 858 records and 41 checks with its own units and working selection"
   ],
@@ -28,7 +27,7 @@
       "overflowY": false,
       "panels": [
         {
-          "name": "运行构成",
+          "name": "对话轮次详情",
           "x": 8,
           "y": 83,
           "width": 396,
@@ -37,7 +36,7 @@
           "right": 404
         },
         {
-          "name": "测试演变",
+          "name": "Agent 介入",
           "x": 8,
           "y": 400.953125,
           "width": 396,
@@ -81,7 +80,7 @@
       "overflowY": false,
       "panels": [
         {
-          "name": "运行构成",
+          "name": "对话轮次详情",
           "x": 8,
           "y": 83,
           "width": 356,
@@ -90,7 +89,7 @@
           "right": 364
         },
         {
-          "name": "测试演变",
+          "name": "Agent 介入",
           "x": 8,
           "y": 358.953125,
           "width": 356,
@@ -134,7 +133,7 @@
       "overflowY": false,
       "panels": [
         {
-          "name": "运行构成",
+          "name": "对话轮次详情",
           "x": 8,
           "y": 83,
           "width": 337.5,
@@ -143,7 +142,7 @@
           "right": 345.5
         },
         {
-          "name": "测试演变",
+          "name": "Agent 介入",
           "x": 8,
           "y": 314.546875,
           "width": 337.5,
@@ -187,7 +186,7 @@
       "overflowY": false,
       "panels": [
         {
-          "name": "运行构成",
+          "name": "对话轮次详情",
           "x": 8,
           "y": 83,
           "width": 316,
@@ -196,7 +195,7 @@
           "right": 324
         },
         {
-          "name": "测试演变",
+          "name": "Agent 介入",
           "x": 8,
           "y": 294.140625,
           "width": 316,

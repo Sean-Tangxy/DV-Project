@@ -241,5 +241,5 @@
     svgEl.addEventListener('pointercancel',()=>{drag=null;state.dragged=false;if(scene)hover(null);});
     svgEl.addEventListener('pointerup',()=>{drag=null;setTimeout(()=>{state.dragged=false;},0);});
   }
-  root.TestMapView={render};
+  root.TestMapView={render,colors,names};
 })(globalThis);
