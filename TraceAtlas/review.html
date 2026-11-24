@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TraceAtlas · Analysis Workspace</title>
+  <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="redesign.css"><link rel="stylesheet" href="review.css">
+</head>
+<body class="review-workspace">
+  <header class="review-top"><a class="wordmark" href="review.html">TraceAtlas<span> / 分析工作区</span></a><select id="review-dataset" aria-label="数据集"><option value="sts2">STS2 Agent</option><option value="sszx">sszx_vs_zz</option></select><select id="review-session" aria-label="会话"></select><span id="data-counts"></span><div class="top-spacer"></div><a href="index.html" id="original-link">原版</a><button id="review-reset">重置</button><button id="review-help" aria-label="操作说明">?</button></header>
+  <div class="review-context"><span class="context-label">分析范围</span><span id="scope-label">全部运行</span><span id="selection-label"></span><button id="clear-selection" hidden>清除选择 ×</button><span class="context-unit" id="unit-label"></span></div>
+  <main class="research-grid">
+    <section class="panel composition-panel"><div class="head"><h2>运行构成</h2><span id="composition-total"></span><button class="quiet" id="clear-filter" hidden>清除筛选</button></div><div id="composition"></div><div class="composition-foot" id="composition-note"></div></section>
+    <section class="panel evolution-panel"><div class="head"><h2>测试演变</h2><span id="evolution-count"></span><button class="quiet" id="compare-toggle">比较 A / B</button></div><div id="comparison" hidden></div><div id="evolution" class="evolution-scroll" tabindex="0" aria-label="测试与运行矩阵，滚动查看更多运行"></div><div class="matrix-key"><i class="dot pass"></i>通过 <i class="dot fail"></i>失败／错误 <i class="matrix-inferred"></i>身份推断 <i class="matrix-empty"></i>无执行证据</div></section>
+    <section class="panel map-panel"><div class="head"><h2>文件群岛</h2><span id="map-caption"></span><div class="top-spacer"></div><div class="map-modes"><button data-map-mode="structure" aria-pressed="true">结构</button><button data-map-mode="depth" aria-pressed="false">深度 3D</button><button data-map-mode="count" aria-pressed="false">数量</button></div><button id="map-zoom" class="quiet" title="放大地图">⤢</button><details class="map-options"><summary aria-label="地图显示设置">⋯</summary><div><label><input id="show-refs" type="checkbox" checked>引用关系</label><label><input id="show-types" type="checkbox" checked>类型颜色</label><button id="map-fit">适配地图</button><button id="clear-file">取消文件选择</button></div></details></div><div class="plot-scroll map-scroll" id="file-map"></div><div id="map-metric-caption"></div><div id="map-profile" hidden></div><div class="foot" id="map-legend"></div></section>
+    <section class="panel inspector-panel"><div class="head"><h2>选择详情</h2><span id="detail-kind"></span><button id="inspector-toggle" class="quiet" title="收起详情">›</button></div><div id="detail"></div></section>
+    <section class="panel time-panel"><div class="head"><h2>声明与执行</h2><span id="timeline-range"></span><div class="top-spacer"></div><button id="time-previous" class="quiet" title="上一条声明">‹</button><button id="time-next" class="quiet" title="下一条声明">›</button><button id="map-play" class="quiet" title="按运行播放">▷</button><button id="time-all" class="quiet">全时段</button><span class="time-legend">◇ 声明　● 运行　│ 修改　拖动底部概览选择时段</span></div><div id="timeline"></div><div id="time-overview" tabindex="0" aria-label="拖动选择时间范围"></div></section>
+  </main>
+  <div id="chart-tooltip" class="chart-tooltip" hidden></div>
+  <dialog id="review-guide"><div class="head"><h2>分析工作区</h2><button id="close-help">关闭</button></div><div class="guide-content"><p>底部拖动概览选择时段，点菱形查看 AI 声明，点运行选择一批执行记录。声明与运行的连接表示候选关系。</p><p>左上矩阵：行表示测试深度，列表示身份依据，条长为实例数。点格子联动地图；未知深度不会归入 D0。</p><p>左下矩阵：列是按时间排序的运行，行按文件聚合。点行名展开函数，点列选择运行，Shift＋点列设为 A。斜线表示推断身份，空白表示没有该条执行证据。</p><p>选中地图文件后，构成图和演变矩阵显示与它相关的测试。右侧显示相同口径的摘要、实例和引用来源。</p><p>数量单位：实例 = 一次运行中的测试身份条目；同一身份重复运行重复计数。集合比较按测试名去重。源码或邻近版本推断不证明该实例通过；静态调用也不等于动态覆盖。</p><p>尚未定位身份的摘要数量单独列出。新版本保留所有可关联到当前项目轮次的声明，不要求声明先映射到地图。</p></div></dialog>
+  <noscript>请启用 JavaScript。</noscript>
+  <script src="dataset.js"></script><script src="dataset-sts2.js"></script><script src="pytest-depth-data.js"></script>
+  <script src="model.js"></script><script src="test-evidence.js"></script><script src="atlas.js"></script><script src="map-3d.js"></script><script src="map-view.js"></script><script src="review-data.js"></script><script src="review-app.js"></script>
+</body></html>

@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join,resolve} from 'node:path';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {spawn} from 'node:child_process';
+const target=resolve(process.argv[2]??fileURLToPath(new URL('.',import.meta.url))),profile=mkdtempSync(join(tmpdir(),'traceatlas-review-'));
+const proc=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--remote-debugging-port=0','--no-first-run','--no-default-browser-check','--disable-extensions','--disable-background-networking','--disable-component-update','--window-size=1600,1000','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:'ignore'});
+const wait=ms=>new Promise(r=>setTimeout(r,ms));let socket;
+try{
+ let port;for(let i=0;i<100;i++){try{port=Number(readFileSync(join(profile,'DevToolsActivePort'),'utf8').split('\n')[0]);if(port)break;}catch{}await wait(100);}
+ assert.ok(port,'Browser testing connection available');
+ const tabs=await fetch('http://127.0.0.1:'+port+'/json').then(r=>r.json());socket=new WebSocket(tabs.find(t=>t.type==='page').webSocketDebuggerUrl);
+ await new Promise((yes,no)=>{socket.addEventListener('open',yes,{once:true});socket.addEventListener('error',no,{once:true});});
+ let next=0;const pending=new Map(),errors=[];
+ socket.addEventListener('message',e=>{const d=JSON.parse(e.data);if(d.id){const p=pending.get(d.id);pending.delete(d.id);d.error?p.reject(d.error):p.resolve(d.result);}else if(d.method==='Runtime.exceptionThrown')errors.push(d.params.exceptionDetails);});
+ const call=(method,params={})=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
+ const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
+ await call('Runtime.enable');await call('Page.enable');await call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});
+ await call('Page.navigate',{url:pathToFileURL(join(target,'review.html')).href});
+ for(let i=0;i<150;i++){if(await evaluate('Boolean(globalThis.researchWorkspace&&document.querySelector("#timeline svg"))'))break;await wait(100);}
+ assert.ok(await evaluate('Boolean(globalThis.researchWorkspace&&document.querySelector("#timeline svg"))'),'Workspace initialized');
+ const tests=[];
+ const layouts=[];
+ for(const [width,height]of [[1600,1000],[1440,900],[1366,768],[1280,720]]){
+  await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait(170);
+  const layout=await evaluate(`({width:innerWidth,height:innerHeight,overflowX:document.documentElement.scrollWidth>innerWidth,overflowY:document.documentElement.scrollHeight>innerHeight,panels:[...document.querySelectorAll('.research-grid>.panel')].map(p=>{const r=p.getBoundingClientRect();return {name:p.querySelector('h2').textContent,x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right};})})`);
+  assert.equal(layout.overflowX,false);assert.equal(layout.overflowY,false);for(const p of layout.panels){assert.ok(p.width>0&&p.height>0);assert.ok(p.right<=width+1&&p.bottom<=height+1,p.name+' stays in viewport');}layouts.push(layout);
+ }
+ tests.push('Five analysis regions remain within landscape viewport at four desktop sizes');
+ await call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false});await wait(180);
+ const capture=async name=>{const shot=await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});writeFileSync(join(target,name),Buffer.from(shot.data,'base64'));};
+ await capture('review-overview.png');
+ const initial=await evaluate(`({runs:researchWorkspace.data.runs.length,claims:researchWorkspace.data.claims.length,entries:researchWorkspace.aggregate().rows.length,files:document.querySelectorAll('#file-map [data-file]').length})`);
+ assert.equal(initial.claims,235);assert.equal(initial.entries,41168);
+ tests.push('Entire project dataset loads without a preselected case');
+ await evaluate(`document.querySelector('[data-depth-filter="1"][data-basis-filter="1"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`);
+ assert.deepEqual(await evaluate('({level:researchWorkspace.view.level,basis:researchWorkspace.view.basis})'),{level:1,basis:1});
+ assert.ok(await evaluate(`researchWorkspace.aggregate().filtered.every(x=>x.item.level===1&&x.item.basis===1)`));
+ await evaluate(`document.getElementById('clear-filter').click()`);
+ tests.push('Composition filter changes the same instance subset used by the map');
+ await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
+ assert.ok(await evaluate(`researchWorkspace.aggregate().selected.length===1&&document.getElementById('detail').textContent.includes('身份条目')`));
+ await evaluate(`document.querySelector('[data-map-mode="depth"]').click()`);await wait(150);
+ assert.ok(await evaluate(`Boolean(document.querySelector('#file-map svg'))`));
+ await capture('review-run.png');
+ tests.push('Selecting a run and switching to 3D renders coordinated map and inspector');
+ await evaluate(`researchWorkspace.selectClaim(researchWorkspace.data.claims.find(c=>!c.candidates.length).id)`);
+ assert.equal(await evaluate('researchWorkspace.aggregate().rows.length'),0);
+ assert.ok(await evaluate(`document.getElementById('detail').textContent.includes('未找到可关联候选')`));
+ tests.push('Declaration without candidates stays visible and does not display all runs as its evidence');
+ await evaluate(`document.getElementById('review-reset').click();researchWorkspace.setRange(researchWorkspace.data.min,researchWorkspace.data.min+(researchWorkspace.data.max-researchWorkspace.data.min)/3)`);
+ assert.ok(await evaluate('researchWorkspace.aggregate().scope.length<researchWorkspace.data.runs.length'));
+ tests.push('Time range selection reduces linked run scope');
+ await evaluate(`document.getElementById('review-reset').click();document.getElementById('map-play').click()`);await wait(900);
+ const playOne=await evaluate('researchWorkspace.view.runIds[0]');await evaluate(`document.getElementById('map-play').click()`);await wait(900);
+ assert.equal(await evaluate('researchWorkspace.view.runIds[0]'),playOne);
+ tests.push('Playback advances through runs and pause cancels pending advance');
+ await evaluate(`document.getElementById('review-reset').click()`);
+ const header=await evaluate(`(()=>{const canvas=document.querySelector('#evolution canvas'),r=canvas.getBoundingClientRect();return {x:r.x+163,y:r.y+15};})()`);
+ for(const type of ['mousePressed','mouseReleased'])await call('Input.dispatchMouseEvent',{type,x:header.x,y:header.y,button:'left',clickCount:1,modifiers:type==='mousePressed'?8:8});
+ assert.ok(await evaluate('Boolean(researchWorkspace.view.pin)'));
+ tests.push('Shift-click matrix header selects comparison A');
+ await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs[1].id)`);
+ assert.ok(await evaluate(`document.getElementById('comparison').textContent.includes('共同身份')`));
+ tests.push('A/B comparison displays identity intersection and differences');
+ const file=await evaluate(`researchWorkspace.aggregate().rows.find(x=>researchWorkspace.model.atlas.positions.has(x.item.file.toLowerCase()))?.item.file.toLowerCase()`);
+ if(file){await evaluate('researchWorkspace.selectFile('+JSON.stringify(file)+')');assert.ok(await evaluate(`document.getElementById('detail-kind').textContent==='文件'`));tests.push('File selection updates the same-unit evidence inspector');}
+ await evaluate(`document.getElementById('review-reset').click();document.querySelector('[data-map-mode="structure"]').click()`);
+ const expansion=await evaluate(`(()=>{const r=document.querySelector('#evolution canvas').getBoundingClientRect();return {x:r.x+20,y:r.y+50,before:document.querySelector('.matrix-stage').offsetHeight};})()`);
+ for(const type of ['mousePressed','mouseReleased'])await call('Input.dispatchMouseEvent',{type,x:expansion.x,y:expansion.y,button:'left',clickCount:1});
+ assert.ok(await evaluate('document.querySelector(".matrix-stage").offsetHeight')>expansion.before);
+ tests.push('Clicking a file row expands function and parameter identities in the matrix');
+ const brush=await evaluate(`(()=>{const r=document.getElementById('time-overview').getBoundingClientRect();return {x:r.x+r.width*.25,end:r.x+r.width*.6,y:r.y+r.height*.5};})()`);
+ await call('Input.dispatchMouseEvent',{type:'mousePressed',x:brush.x,y:brush.y,button:'left',clickCount:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:brush.end,y:brush.y,button:'left',buttons:1});
+ await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:brush.end,y:brush.y,button:'left',clickCount:1});
+ assert.ok(await evaluate('researchWorkspace.view.range[0]>researchWorkspace.data.min&&researchWorkspace.view.range[1]<researchWorkspace.data.max'));
+ tests.push('Dragging the actual overview applies a shared time interval');
+ await call('Page.navigate',{url:pathToFileURL(join(target,'review.html')).href+'?dataset=sszx'});
+ for(let i=0;i<150;i++){if(await evaluate('Boolean(globalThis.researchWorkspace&&researchWorkspace.data.unit==="check"&&document.querySelector("#timeline svg"))'))break;await wait(100);}
+ assert.ok(await evaluate('researchWorkspace.model.events.length===858&&researchWorkspace.data.runs.length===41'));
+ assert.ok(await evaluate('document.getElementById("unit-label").textContent.includes("检查目标条目")'));
+ await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs[0].id)`);
+ assert.ok(await evaluate('document.getElementById("detail").textContent.includes("身份条目")'));
+ tests.push('SSZX opens all 858 records and 41 checks with its own units and working selection');
+ assert.equal(errors.length,0,JSON.stringify(errors));
+ writeFileSync(join(target,'review-browser-validation.json'),JSON.stringify({tests,initial,layouts,errors},null,2));
+ console.log(JSON.stringify({tests,initial,layouts,errors},null,2));
+}finally{socket?.close();proc.kill();}
