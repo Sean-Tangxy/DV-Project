@@ -46,7 +46,7 @@
   function matchesFile(item,file){return !file||item.file.toLowerCase()===file||Object.keys(item.targets).some(p=>p.toLowerCase()===file);}
   function matches(item,view){return (view.level==null||(item.level??5)===view.level)&&(view.basis==null||item.basis===view.basis)&&(!view.item||item.identity===view.item);}
   function aggregate(data,view,file=null){
-    const scope=scoped(data,view),selected=view.runIds?.length?scope.filter(r=>view.runIds.includes(r.id)):scope;
+    const scope=scoped(data,view),ids=new Set(view.runIds),selected=ids.size||view.turn?scope.filter(r=>ids.has(r.id)):scope;
     const grid=Array.from({length:6},()=>[0,0,0]),outcomes=Array.from({length:6},()=>({pass:0,fail:0,error:0,unknown:0,skipped:0,other:0}));
     const rows=[],filtered=[];let outside=0,missing=0;
     for(const r of selected){
@@ -61,7 +61,7 @@
     }
     return {scope,selected,grid,outcomes,rows,filtered,missing,outside};
   }
-  function mapStats(data,view,ctx){
+  function mapStats(data,view,ctx,aggregation=null){
     const {M,eventIndex}=ctx,info=ctx.mapCutoffInfo(),stats=new Map(),links=new Map();
     const ensure=path=>{
       const key=path.toLowerCase(),f=M.files.get(key);if(!f||!M.atlas.positions.has(key))return null;
@@ -70,7 +70,7 @@
     };
     for(const [,f] of M.mapScope.files)if(TestEvidence.present(M,f,info,eventIndex,view.session))ensure(f.path);
     const add=(s,item)=>{const d=item.level??5;s.count++;s.histogram[d]++;s.sum+=item.level??0;if(['fail','error'].includes(item.result))s.failures[d]++;s.items.push(item);};
-    const agg=aggregate(data,view);
+    const agg=aggregation??aggregate(data,view);
     for(const {item} of agg.filtered){
       const src=ensure(item.file);if(!src)continue;add(src,item);
       for(const [path,reference] of Object.entries(item.targets)){

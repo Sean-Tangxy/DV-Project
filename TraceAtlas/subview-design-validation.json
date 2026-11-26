@@ -1,0 +1,28 @@
+{
+  "checks": [
+    "Standalone page initializes without external data or libraries",
+    "Left alternative event renders with valid geometry",
+    "Left alternative sankey renders with valid geometry",
+    "Left alternative river renders with valid geometry",
+    "Left alternative parallel renders with valid geometry",
+    "Left alternative spiral renders with valid geometry",
+    "Right alternative content renders with valid geometry",
+    "Right alternative evidence renders with valid geometry",
+    "Right alternative box renders with valid geometry",
+    "Right alternative delta renders with valid geometry",
+    "Selecting a run updates the linked detail card",
+    "Matrix selection updates the exact test identity and assertion",
+    "All alternatives tolerate empty current-run subsets",
+    "Test selector and compact execution history are interactive",
+    "Page has no horizontal overflow at 1366x768",
+    "Page has no horizontal overflow at 1280x720",
+    "Page has no horizontal overflow at 740x1000",
+    "Actual sidebar-size previews can be toggled",
+    "Source and encoding notes open and close",
+    "Quartile calculation and inferred-result separation hold"
+  ],
+  "errors": [],
+  "synthetic": true,
+  "tests": 28,
+  "runs": 6
+}

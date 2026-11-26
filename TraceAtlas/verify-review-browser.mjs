@@ -36,23 +36,71 @@ try{
  const initial=await evaluate(`({runs:researchWorkspace.data.runs.length,claims:researchWorkspace.data.claims.length,entries:researchWorkspace.aggregate().rows.length,files:document.querySelectorAll('#file-map [data-file]').length})`);
  assert.equal(initial.claims,235);assert.equal(initial.entries,41168);
  tests.push('Entire project dataset loads without a preselected case');
+ const turnLink=await evaluate(`(()=>{
+   const w=researchWorkspace,groups=new Map();
+   for(const r of w.data.runs){const a=groups.get(r.turn)||[];a.push(r);groups.set(r.turn,a);}
+   const claim=w.data.claims.find(c=>(groups.get(c.turn_id)?.length||0)>1);
+   const selector=document.getElementById('turn-choice');selector.value=claim.turn_id;selector.dispatchEvent(new Event('change'));
+   const expected=groups.get(claim.turn_id),agg=w.aggregate();
+   return {key:claim.turn_id,selected:w.view.turn,ids:[...w.view.runIds].sort(),expected:expected.map(r=>r.id).sort(),count:agg.rows.length,expectedCount:expected.reduce((n,r)=>n+r.items.length,0),caption:document.getElementById('map-metric-caption').textContent,kind:document.getElementById('detail-kind').textContent,clock:w.view.clock,lastRun:Math.max(...expected.map(r=>r.time))};
+ })()`);
+ assert.equal(turnLink.selected,turnLink.key);assert.deepEqual(turnLink.ids,turnLink.expected);assert.equal(turnLink.count,turnLink.expectedCount);assert.ok(turnLink.caption.includes('当前轮次'));assert.equal(turnLink.kind,'对话轮次');assert.ok(turnLink.clock>=turnLink.lastRun);
+ for(const mode of ['structure','depth','count']){
+   await evaluate(`document.querySelector('[data-map-mode="${mode}"]').click()`);
+   assert.equal(await evaluate('researchWorkspace.view.turn'),turnLink.key);
+   assert.equal(await evaluate('researchWorkspace.aggregate().rows.length'),turnLink.expectedCount);
+ }
+ tests.push('Selecting a dialogue turn links all its runs, map modes, cutoff time and inspector');
+ assert.ok(await evaluate(`(()=>{
+   const w=researchWorkspace,timeline=document.querySelector('#timeline svg'),overview=document.querySelector('#time-overview svg'),option=document.querySelector('#turn-choice option:nth-child(2)'),cursor=document.querySelector('#time-cursor').getAttribute('d');
+   const t=[...w.turns.values()].find(t=>t.key!==w.view.turn&&t.end>=w.view.range[0]&&t.end<=w.view.range[1]);
+   w.selectTurn(t.key);
+   return timeline===document.querySelector('#timeline svg')&&overview===document.querySelector('#time-overview svg')&&option===document.querySelector('#turn-choice option:nth-child(2)')&&cursor!==document.querySelector('#time-cursor').getAttribute('d')&&document.querySelectorAll('#timeline circle[r="4"]').length===t.runs.length;
+ })()`));
+ tests.push('Turn navigation retains static timeline, overview and dropdown nodes while updating cursor and highlights');
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(turnLink.key)})`);
+
+ await evaluate(`document.querySelector('[data-turn-run]').click()`);
+ assert.equal(await evaluate('researchWorkspace.view.turn'),null);assert.equal(await evaluate('researchWorkspace.aggregate().selected.length'),1);
+ tests.push('A cycle click drills from turn aggregation into one run');
+ const emptyTurn=await evaluate(`(()=>{const w=researchWorkspace,runTurns=new Set(w.data.runs.map(r=>r.turn)),c=w.data.claims.find(c=>!runTurns.has(c.turn_id));if(!c)return null;w.selectTurn(c.turn_id);return {rows:w.aggregate().rows.length,selected:w.aggregate().selected.length,caption:document.getElementById('detail').textContent};})()`);
+ if(emptyTurn){assert.equal(emptyTurn.rows,0);assert.equal(emptyTurn.selected,0);assert.ok(emptyTurn.caption.includes('没有定位到测试运行'));tests.push('Turn without runs keeps execution evidence empty');}
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(turnLink.key)});document.getElementById('clear-selection').click()`);
+ assert.equal(await evaluate('researchWorkspace.view.turn'),null);assert.equal(await evaluate('researchWorkspace.aggregate().selected.length'),initial.runs);
+ tests.push('Clearing turn selection restores the previous time-range overview');
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(turnLink.key)});document.getElementById('map-play').click();document.getElementById('map-play').click()`);
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,t=w.turns.get(w.view.turn);return !!t&&w.view.cumulative===false&&JSON.stringify([...w.view.runIds].sort())===JSON.stringify(t.runs.filter(r=>ReviewData.inRange(r,w.view)).map(r=>r.id).sort())&&document.getElementById('detail-kind').textContent==='对话轮次'})()`));
+ tests.push('Per-turn playback aggregates every run of the active turn and coordinates the inspector');
  await evaluate(`researchWorkspace.selectClaim(researchWorkspace.data.claims.find(c=>c.reported_passes===171).id)`);
  assert.ok(await evaluate(`document.querySelector('#turn-detail').textContent.includes('171 passed')`));
  tests.push('Turn details retain the selected declaration and reported count');
- assert.ok(await evaluate(`[...document.querySelector('#turn-choice').options].filter(o=>o.value).every(o=>researchWorkspace.data.claims.some(c=>c.turn_id===o.value))`));
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,options=[...document.querySelector('#turn-choice').options].filter(o=>o.value);return options.length===w.turns.size&&options.some(o=>!w.data.claims.some(c=>c.turn_id===o.value));})()`));
  const cycle=await evaluate(`document.querySelector('[data-turn-run]').dataset.turnRun`);
  await evaluate(`document.querySelector('[data-turn-run]').click()`);
  assert.deepEqual(await evaluate('researchWorkspace.view.runIds'),[cycle]);
  assert.ok(await evaluate(`document.querySelector('.cycle-card[aria-pressed=true] .cycle-pie')!==null`));
- await evaluate(`document.querySelector('#previous-dialogue').click()`);
- assert.ok(await evaluate(`document.querySelector('#return-dialogue')&&document.querySelectorAll('.turn-disclosure:not([open])').length===2`));
+ const nav=await evaluate(`(()=>{const w=researchWorkspace,t=w.turns.get(document.getElementById('turn-choice').value),list=[...w.turns.values()].filter(x=>x.session===t.session),i=list.indexOf(t);return {key:t.key,previous:list[i-1]?.key,next:list[i+1]?.key,first:list[0].key,last:list.at(-1).key};})()`);
+ if(nav.previous){
+   await evaluate(`document.querySelector('#previous-dialogue').click()`);
+   assert.equal(await evaluate('researchWorkspace.view.turn'),nav.previous);
+   assert.equal(await evaluate('document.getElementById("turn-choice").value'),nav.previous);
+   assert.ok(await evaluate(`(()=>{const w=researchWorkspace,t=w.turns.get(w.view.turn);return w.view.clock===t.end&&w.aggregate().rows.length===t.runs.reduce((n,r)=>n+r.items.length,0)&&document.querySelectorAll('.turn-disclosure:not([open])').length===2})()`));
+   await evaluate(`document.querySelector('#next-dialogue').click()`);
+   assert.equal(await evaluate('researchWorkspace.view.turn'),nav.key);
+ }
+ assert.equal(await evaluate('document.getElementById("return-dialogue")'),null);
  for(const id of ['turn-prompt','turn-reply']){
    assert.ok(await evaluate(`(()=>{const section=document.getElementById('${id}');section.querySelector('summary').click();return section.open&&section.querySelector('p').innerText.trim().length>0})()`));
    await evaluate(`document.querySelector('#${id} summary').click()`);
  }
- await evaluate(`while(!document.querySelector('#previous-dialogue').disabled)document.querySelector('#previous-dialogue').click();document.querySelector('#return-dialogue').click()`);
- assert.deepEqual(await evaluate('researchWorkspace.view.runIds'),[cycle]);
- tests.push('Declaration-only selector, cycle pie navigation and bounded conversation history');
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(nav.first)})`);
+ assert.equal(await evaluate('document.getElementById("previous-dialogue").disabled'),true);
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(nav.last)})`);
+ assert.equal(await evaluate('document.getElementById("next-dialogue").disabled'),true);
+ await evaluate(`researchWorkspace.selectTurn([...researchWorkspace.turns.values()].find(t=>!t.runs.length&&!t.claims.length).key)`);
+ assert.equal(await evaluate('researchWorkspace.aggregate().rows.length'),0);
+ assert.equal(await evaluate('document.getElementById("turn-choice").value===researchWorkspace.view.turn'),true);
+ tests.push('All conversation turns support previous/next navigation, including no-test turns, with bounded endpoints');
  await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
  assert.ok(await evaluate(`researchWorkspace.aggregate().selected.length===1&&document.getElementById('detail').textContent.includes('身份条目')`));
  await evaluate(`document.querySelector('[data-map-mode="depth"]').click()`);await wait(150);
@@ -66,10 +114,31 @@ try{
  await evaluate(`document.getElementById('review-reset').click();researchWorkspace.setRange(researchWorkspace.data.min,researchWorkspace.data.min+(researchWorkspace.data.max-researchWorkspace.data.min)/3)`);
  assert.ok(await evaluate('researchWorkspace.aggregate().scope.length<researchWorkspace.data.runs.length'));
  tests.push('Time range selection reduces linked run scope');
- await evaluate(`document.getElementById('review-reset').click();document.getElementById('map-play').click()`);await wait(900);
- const playOne=await evaluate('researchWorkspace.view.runIds[0]');await evaluate(`document.getElementById('map-play').click()`);await wait(900);
- assert.equal(await evaluate('researchWorkspace.view.runIds[0]'),playOne);
- tests.push('Playback advances through runs and pause cancels pending advance');
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,svg=document.querySelector('#timeline svg');w.setRange(w.data.min,w.data.max);return svg!==document.querySelector('#timeline svg')&&document.querySelectorAll('[data-time-run]').length===w.data.runs.length;})()`));
+ const timelineClick=await evaluate(`(()=>{const w=researchWorkspace,node=document.querySelector('[data-time-run]');node.dispatchEvent(new MouseEvent('click',{bubbles:true}));return w.view.runIds[0]===node.dataset.timeRun&&w.aggregate().selected.length===1;})()`);
+ assert.equal(timelineClick,true);
+ tests.push('Cached timeline rebuilds after range changes and delegated run clicks preserve selection');
+
+ await evaluate(`document.getElementById('review-reset').click();document.getElementById('map-play').click()`);await wait(1200);
+ const playOne=await evaluate('researchWorkspace.view.turn');await evaluate(`document.getElementById('map-play').click()`);await wait(1200);
+ assert.equal(await evaluate('researchWorkspace.view.turn'),playOne);
+ assert.equal(await evaluate('document.getElementById("map-play").getAttribute("aria-pressed")'),'false');
+ tests.push('Playback advances through conversation turns and pause cancels pending advance');
+ await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(turnLink.key)});var mode=document.getElementById('play-mode');mode.value='cumulative';mode.dispatchEvent(new Event('change'))`);
+ const accumulated=await evaluate(`(()=>{const w=researchWorkspace,expected=w.data.runs.filter(r=>ReviewData.inRange(r,w.view)&&r.time<=w.view.clock);return {actual:[...w.view.runIds].sort(),expected:expected.map(r=>r.id).sort(),rows:w.aggregate().rows.length,expectedRows:expected.reduce((n,r)=>n+r.items.length,0),caption:document.getElementById('map-metric-caption').textContent,kind:document.getElementById('detail-kind').textContent}})()`);
+ assert.deepEqual(accumulated.actual,accumulated.expected);assert.equal(accumulated.rows,accumulated.expectedRows);assert.ok(accumulated.caption.includes('累积'));assert.equal(accumulated.kind,'累积播放');
+ await evaluate(`document.getElementById('map-play').click()`);await wait(1200);
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace;return w.view.cumulative&&w.view.runIds.length===ReviewData.scoped(w.data,w.view).filter(r=>r.time<=w.view.clock).length})()`));
+ await evaluate(`var mode=document.getElementById('play-mode');mode.value='turn';mode.dispatchEvent(new Event('change'))`);
+ const switched=await evaluate('researchWorkspace.view.turn');await wait(1200);
+ assert.equal(await evaluate('researchWorkspace.view.turn'),switched);
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,t=w.turns.get(w.view.turn);return !w.view.cumulative&&w.aggregate().selected.length===t.runs.filter(r=>ReviewData.inRange(r,w.view)).length})()`));
+ tests.push('Cumulative mode contains exactly prior runs in the selected range; switching modes pauses and restores per-turn scope');
+ await evaluate(`(()=>{const w=researchWorkspace,t=[...w.turns.values()].find(t=>!t.runs.length&&w.data.runs.some(r=>r.time<t.end));w.selectTurn(t.key);var mode=document.getElementById('play-mode');mode.value='cumulative';mode.dispatchEvent(new Event('change'));})()`);
+ assert.ok(await evaluate('researchWorkspace.aggregate().selected.length>0'));
+ await evaluate(`var mode=document.getElementById('play-mode');mode.value='turn';mode.dispatchEvent(new Event('change'))`);
+ assert.equal(await evaluate('researchWorkspace.aggregate().selected.length'),0);
+ tests.push('No-test turns stay empty in per-turn mode and retain only prior evidence in cumulative mode');
  await evaluate(`document.getElementById('review-reset').click()`);
  await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
  const file=await evaluate(`researchWorkspace.aggregate().rows.find(x=>researchWorkspace.model.atlas.positions.has(x.item.file.toLowerCase()))?.item.file.toLowerCase()`);
