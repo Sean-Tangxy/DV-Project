@@ -3,11 +3,14 @@
   const $=id=>document.getElementById(id),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const params=new URLSearchParams(location.search),dataset=params.get('dataset')==='sszx'?'sszx':'sts2';
   const M=VerificationModel.build(dataset==='sts2'?STS2_DATA:SSZX_DATA);
-  TestEvidence.attach(M);M.references=ReferenceAtlas.extract(M);M.mapScope=TestEvidence.mapScope(M);M.atlas=ReferenceAtlas.layout(M.mapScope,M.mapScope.references);
-  const depthCeiling=TestEvidence.depthCeiling(M.mapScope),data=ReviewData.build(M,dataset==='sts2'?PYTEST_DEPTH:null);
+  TestEvidence.attach(M);M.references=ReferenceAtlas.extract(M);
+  M.mapScope={files:new Map(M.files),references:M.references};
+  const data=ReviewData.build(M,dataset==='sts2'?PYTEST_DEPTH:null);
+  ReviewMapModel.attach(M,data);M.atlas=ReviewMapModel.layout(M,data);M.terrain=ReviewMapTerrain.build(M);M.areaLayout=ReviewAreaLayout.prepare(M,data);M.reviewScale=ReviewMapModel.scale(M,data);
+  const depthCeiling=TestEvidence.depthCeiling(M.mapScope);
   const chronological=[...M.events].sort((a,b)=>Date.parse(a.time)-Date.parse(b.time)||a.index-b.index),eventIndex=new Map(chronological.map((e,i)=>[e.id,i]));
-  const state={session:'all',kind:'all',file:null,selected:null,run:null,pin:null,edge:null,mapBox:null,mapMode:'structure'};
-  const view={session:'all',range:[data.min,data.max],runIds:[],turn:null,cumulative:false,playMode:'turn',claim:null,level:null,basis:null,item:null,pin:null,clock:data.max};
+  const state={session:'all',kind:'all',file:null,selected:null,run:null,pin:null,edge:null,mapBox:null,mapMode:'size',bundle:null,openClasses:new Set([M.atlas.groups.find(g=>g.side==='test')?.name].filter(Boolean)),treeScroll:0};
+  const view={session:'all',range:[data.min,data.max],runIds:[],turn:null,cumulative:false,playMode:'turn',claim:null,level:null,basis:null,topic:null,item:null,pin:null,clock:data.max};
   const tierNames={command_or_output:'命令／输出定位',source_inferred:'历史源码推断',fixture_and_summary:'临时目录与摘要推断',nearby_version_only:'邻近版本候选',failed:'输出记录失败',error:'输出记录错误'};
   const resultNames={pass:'通过',fail:'失败',error:'错误',unknown:'逐项结果未确认',pending:'进行中',skipped:'跳过',mixed:'部分通过',blocked:'启动受阻'};
   let mapSnapshot=null,renderScope=null,playing=null,playbackGeneration=0;
@@ -18,26 +21,27 @@
   const units=data.unit==='instance'?'测试执行实例':'检查目标条目';
   const eventTimes=chronological.map(e=>Date.parse(e.time));
   function info(){let lo=0,hi=eventTimes.length;while(lo<hi){const mid=(lo+hi)>>>1;if(eventTimes[mid]<=view.clock)lo=mid+1;else hi=mid;}const index=lo-1;return {index,event:{time:new Date(view.clock).toISOString()},seq:chronological,cursor:index,label:time(view.clock)};}
-  function ctx(){return {M,state,render,selectFile,stopMapPlayback:stop,mapCutoffInfo:info,eventIndex,depthCeiling,mapCutoff:()=>info().index,mapDate:()=>time(view.clock),chronological};}
+  function ctx(){return {M,state,view,render,selectFile,selectTopic,selectBundle,stopMapPlayback:stop,mapCutoffInfo:info,eventIndex,depthCeiling,mapCutoff:()=>info().index,mapDate:()=>time(view.clock),chronological};}
   function stop(){if(playing)clearTimeout(playing);playing=null;playbackGeneration++;$('map-play').textContent='▷';$('map-play').setAttribute('aria-label','开始播放');$('map-play').setAttribute('aria-pressed','false');}
   root.PytestDepth={update(context){
-    if(data.unit!=='instance')return null;
     mapSnapshot=ReviewData.mapStats(data,view,context,renderScope);return mapSnapshot;
   }};
-  function selectFile(key){stop();state.file=key;state.edge=null;view.item=null;state.selected=null;render();}
+  function selectTopic(id){stop();view.topic=view.topic===id?null:id;view.item=null;state.file=null;state.edge=null;state.bundle=null;render();}
+  function selectBundle(id){stop();state.bundle=state.bundle===id?null:id;state.file=null;state.edge=null;view.item=null;render();}
+  function selectFile(key){stop();state.file=key;state.edge=null;state.bundle=null;view.item=null;state.selected=null;render();}
   function selectRun(id,keepClaim=false){
-    view.turn=null;view.cumulative=false;
+    view.turn=null;view.cumulative=false;view.topic=null;
     manualTurn=null;stop();const r=data.runById.get(id);if(!r)return;
     if(r.time<view.range[0]||r.time>view.range[1])view.range=[Math.min(view.range[0],r.time),Math.max(view.range[1],r.time)];
-    view.runIds=[id];if(!keepClaim)view.claim=null;view.clock=r.time;view.item=null;state.edge=null;state.selected=r.event;render();
+    view.runIds=[id];if(!keepClaim)view.claim=null;view.clock=r.time;view.item=null;state.edge=null;state.bundle=null;state.selected=r.event;render();
   }
   function selectClaim(id){
-    view.turn=null;view.cumulative=false;
+    view.turn=null;view.cumulative=false;view.topic=null;
     manualTurn=null;stop();const c=data.claims.find(c=>c.id===Number(id));if(!c)return;
     view.claim=c.id;view.runIds=c.candidates.filter(id=>data.runById.get(id)?.time<=c.time&&ReviewData.inRange(data.runById.get(id),view));
-    view.clock=c.time;view.item=null;state.file=null;state.edge=null;render();
+    view.clock=c.time;view.item=null;state.file=null;state.edge=null;state.bundle=null;render();
   }
-  function setRange(a,b){view.turn=null;view.cumulative=false;manualTurn=null;stop();view.range=[Math.max(data.min,Math.min(a,b)),Math.min(data.max,Math.max(a,b))];if(view.range[1]-view.range[0]<1000)view.range[1]=Math.min(data.max,view.range[0]+1000);manualTurn=null;view.runIds=[];view.claim=null;view.clock=view.range[1];view.item=null;state.file=null;state.edge=null;render();}
+  function setRange(a,b){view.turn=null;view.cumulative=false;view.topic=null;manualTurn=null;stop();view.range=[Math.max(data.min,Math.min(a,b)),Math.min(data.max,Math.max(a,b))];if(view.range[1]-view.range[0]<1000)view.range[1]=Math.min(data.max,view.range[0]+1000);manualTurn=null;view.runIds=[];view.claim=null;view.clock=view.range[1];view.item=null;state.file=null;state.edge=null;state.bundle=null;render();}
   function active(){
     const agg=ReviewData.aggregate(data,view,state.file);
     // A selected declaration with no candidates supplies no execution set.
@@ -49,8 +53,8 @@
   function render(){
     state.session=view.session;mapSnapshot=null;renderScope=null;
     $('scope-label').textContent=view.runIds.length===1?runLabel(data.runById.get(view.runIds[0]))+' · '+time(view.clock):view.claim!=null?'声明 C'+String(view.claim+1).padStart(3,'0')+' · '+view.runIds.length+' 个运行候选':time(view.range[0])+' — '+time(view.range[1]);
-    $('selection-label').textContent=state.file?M.files.get(state.file)?.path??state.file:view.item?view.item:'';
-    $('clear-selection').hidden=!state.file&&!state.edge&&!view.runIds.length&&view.claim==null&&!view.item;
+    $('selection-label').textContent=state.file?M.files.get(state.file)?.path??state.file:view.item?view.item:view.topic?ReviewMapModel.byTopic.get(view.topic).name+' · 名称候选':'';
+    $('clear-selection').hidden=!state.file&&!state.edge&&!view.runIds.length&&view.claim==null&&!view.item&&!view.topic&&!state.bundle;
     $('unit-label').textContent='单位：'+units+(view.runIds.length?' · 当前运行':' · 当前时段');
     if(view.turn){
       const turn=turnMap.get(view.turn);
@@ -59,17 +63,13 @@
       $('clear-selection').hidden=false;
     }
     if(view.cumulative){$('scope-label').textContent='累积 · '+time(view.range[0])+' — '+time(view.clock)+' · '+view.runIds.length+' 次运行';$('unit-label').textContent='单位：'+units+' · 截至当前轮';}
-    const agg=active();renderScope=state.file?ReviewData.aggregate(data,view):agg;renderTurn();renderAgent();renderTimeline();
+    const agg=active();renderScope=state.file&&!(view.claim!=null&&!view.runIds.length)?ReviewData.aggregate(data,view):agg;renderTurn();renderAgent();renderTimeline();
     AtlasViewsRender();renderDetail(agg);
   }
   function AtlasViewsRender(){
-    const context=ctx();
-    // Preserve empty execution scope for declarations without candidates.
-    if(data.unit==='instance'&&view.claim!=null&&!view.runIds.length){
-      const empty={...view,range:[view.clock+1,view.clock]};mapSnapshot=ReviewData.mapStats(data,empty,context);
-      const update=PytestDepth.update;PytestDepth.update=()=>mapSnapshot;try{TestMapView.render(context);}finally{PytestDepth.update=update;}
-    }else TestMapView.render(context);
-    $('map-metric-caption').textContent=data.unit==='instance'?(view.cumulative?'累积至当前轮 · '+view.runIds.length+' 次运行':view.turn?'当前轮次 · '+view.runIds.length+' 次运行':view.runIds.length?'当前运行':'当前时段')+' · '+(state.mapMode==='depth'?'柱高：实例深度和（辅助量）':state.mapMode==='count'?'数字：关联实例次数':'颜色：源码层级'):'源码引用 · 不代表执行覆盖';
+    const context=ctx();TestMapView.render(context);
+    const scope=view.cumulative?'累积至当前轮':view.turn?'当前轮次':view.runIds.length?'当前运行':'当前时段';
+    $('map-metric-caption').textContent=scope+(view.topic?' · '+ReviewMapModel.byTopic.get(view.topic).name:'');
   }
   const turnMap=new Map(), sessionNumbers=new Map();
   const turnKey=e=>e.turn||e.id.split(':')[0];
@@ -208,11 +208,11 @@
   }
   function selectTurn(key){
     const turn=turnMap.get(key);
-    if(!turn){view.turn=null;view.cumulative=false;manualTurn=null;view.runIds=[];view.claim=null;view.clock=view.range[1];render();return;}
-    stop();manualTurn=key;view.turn=key;view.cumulative=false;
-    view.runIds=turn.runs.map(r=>r.id);view.claim=null;view.item=null;view.level=null;view.basis=null;
+    if(!turn){view.turn=null;view.cumulative=false;view.topic=null;manualTurn=null;view.runIds=[];view.claim=null;view.clock=view.range[1];render();return;}
+    stop();manualTurn=key;view.turn=key;view.cumulative=false;view.topic=null;
+    view.runIds=turn.runs.map(r=>r.id);view.claim=null;view.item=null;view.level=null;view.basis=null;view.topic=null;
     view.range=[Math.min(view.range[0],turn.start),Math.max(view.range[1],turn.end)];
-    view.clock=turn.end;state.file=null;state.edge=null;state.selected=null;state.run=null;
+    view.clock=turn.end;state.file=null;state.edge=null;state.bundle=null;state.selected=null;state.run=null;
     render();
   }
   $('turn-choice').onchange=e=>selectTurn(e.target.value);
@@ -276,14 +276,31 @@
   function renderDetail(agg){
     const claim=data.claims.find(c=>c.id===view.claim),run=view.runIds.length===1?data.runById.get(view.runIds[0]):null;
     let html='<div class="detail">';
-    $('detail-kind').textContent=state.file?'文件':view.cumulative?'累积播放':view.turn?'对话轮次':claim?'声明':run?'运行':'';
+    $('detail-kind').textContent=state.file?'文件':state.bundle?'岛间关联':view.topic?'验证内容':view.cumulative?'累积播放':view.turn?'对话轮次':claim?'声明':run?'运行':'';
     if(state.file){
       const f=M.files.get(state.file),s=mapSnapshot?.stats.get(state.file);
       html+='<div class="detail-path">'+E(f?.path??state.file)+'</div><div class="detail-meta">'+(f?.side==='test'?'测试文件':'项目文件')+' · 与左侧相同运行范围</div><div class="inspector-numbers"><div><strong>'+agg.filtered.length+'</strong><span>'+units+'（含推断）</span></div><div><strong>'+new Set(agg.filtered.map(r=>r.run.id)).size+'</strong><span>关联运行</span></div></div>';
       if(s)html+='<p class="detail-note">源码层级分布：'+s.histogram.map((n,i)=>n?(i===5?'未知':'D'+i)+' × '+n:'').filter(Boolean).join(' · ')+'</p>';
       if(data.unit==='instance')html+='<p class="detail-note">关联来自源码调用，不表示动态覆盖。相同测试在不同运行中会重复计数。</p>';
+      if(view.topic)html+='<p class="detail-note">当前主题：'+E(ReviewMapModel.byTopic.get(view.topic).name)+'（名称候选）</p>';
       html+=instanceList(agg.filtered);
       if(data.unit!=='instance'&&f){const d=TestEvidence.depth(f,info(),eventIndex,view.session,M);html+='<div class="inspector-section"><h3>源码层级依据</h3><p class="detail-note">'+E(d.reason)+'</p><pre>'+E(d.hits.join('\n'))+'</pre></div>';}
+    }else if(state.bundle){
+      const b=ReviewMapModel.bundles(M,ReviewMapModel.content(agg,null,M,view.topic)).files.find(x=>x.id===state.bundle);
+      if(b){
+        const from=M.atlas.byGroup.get(b.source),to=M.atlas.byGroup.get(b.target);
+        html+='<div class="bundle-route"><span>'+E(from.label)+'</span><i>→</i><span>'+E(to.label)+'</span></div><div class="inspector-numbers"><div><strong>'+b.pairs.length+'</strong><span>实际文件对</span></div><div><strong>'+b.count+'</strong><span>条目关联次数</span></div></div><p class="detail-note">由当前记录中的文件引用汇总；包含重复执行及推断，不表示动态覆盖。选一个文件可展开具体路径。</p><div class="evidence-list">';
+        for(const pair of b.pairs.slice(0,24))html+='<div class="bundle-pair"><button data-pick-file="'+E(pair.source)+'">'+E(pair.source.split('/').at(-1))+'</button><span>→</span><button data-pick-file="'+E(pair.target)+'">'+E(pair.target.split('/').at(-1))+'</button><small>'+pair.count+'</small></div>';
+        html+='</div>'+(b.pairs.length>24?'<p class="detail-note">显示前 24 个文件对。</p>':'');
+      }else html+='<p class="detail-note">当前范围没有这组关联。</p>';
+    }else if(view.topic){
+      const t=ReviewMapModel.byTopic.get(view.topic),rows=agg.filtered,files=new Set(rows.filter(r=>M.files.get(r.item.file.toLowerCase())?.side==='test').map(r=>r.item.file)),targets=new Set(rows.flatMap(r=>Object.keys(r.item.targets)));
+      const hist=[0,0,0,0,0,0];rows.forEach(r=>hist[r.item.level??5]++);
+      html+='<div class="detail-path">'+E(t.name)+'</div><p class="detail-note">分类来自用例名／检查标签的关键词；表示候选主题，未解析断言，也不证明执行覆盖。一个条目可属于多个主题。</p><div class="inspector-numbers"><div><strong>'+rows.length+'</strong><span>当前匹配条目</span></div><div><strong>'+files.size+'</strong><span>测试来源文件</span></div></div>';
+      html+='<div class="topic-detail-bars">'+hist.map((n,i)=>'<div><span>'+E(TestMapView.names[i])+'</span><i style="--n:'+n+';--max:'+Math.max(1,...hist)+';--color:'+TestMapView.colors[i]+'"></i><b>'+n+'</b></div>').join('')+'</div>';
+      html+='<div class="inspector-section"><h3>可检查的分类依据</h3><p class="detail-note">关键词：'+E(t.words.join(' / ')||'没有命中已定义规则')+'</p></div>';
+      for(const {item:i} of rows.slice(0,6)){const match=i.topics.find(x=>x.id===view.topic);html+='<div class="topic-match"><span>'+E(match?.hits.join(', ')||'未命中')+'</span><p>'+E(i.identity)+'</p></div>';}
+      html+=instanceList(rows);
     }else if(view.turn){
       const turn=turnMap.get(view.turn);
       html+='<div class="detail-path">'+E(M.sessions.get(turn.session).code)+' · 第 '+turn.number+' 轮</div><div class="detail-meta">'+time(turn.start)+' — '+time(turn.end)+'</div><div class="inspector-numbers"><div><strong>'+turn.runs.length+'</strong><span>本轮运行</span></div><div><strong>'+(view.cumulative?turn.runs.reduce((n,r)=>n+r.items.length,0):agg.rows.length)+'</strong><span>'+units+'（含推断）</span></div></div><p class="detail-note">'+(view.cumulative?'地图叠加所选时段起点至当前轮的 '+agg.selected.length+' 次运行（'+agg.rows.length+' 个条目）；相同测试重复运行会累加。下方列出当前轮运行。':'地图汇总本轮全部已记录运行；文件底座显示截至本轮末的可见文件。点左上某个循环，可进一步查看单次运行。')+'</p>';
@@ -330,14 +347,14 @@
   $('review-session').innerHTML='<option value="all">全部会话</option>'+[...M.sessions.values()].map(s=>'<option value="'+E(s.id)+'">'+s.code+'</option>').join('');
   $('review-session').onchange=e=>{view.session=e.target.value;setRange(data.min,data.max);};
   $('data-counts').textContent=M.events.length.toLocaleString()+' 记录 / '+M.sessions.size+' 会话';
-  $('review-reset').onclick=()=>{manualTurn=null;stop();Object.assign(view,{session:'all',range:[data.min,data.max],runIds:[],turn:null,cumulative:false,claim:null,level:null,basis:null,item:null,pin:null,clock:data.max});state.file=null;state.edge=null;state.mapBox=null;$('review-session').value='all';render();};
-  $('clear-selection').onclick=()=>{stop();manualTurn=null;view.turn=null;view.cumulative=false;view.runIds=[];view.claim=null;view.item=null;view.clock=view.range[1];state.file=null;state.edge=null;render();};
-  $('clear-file').onclick=()=>{state.file=null;state.edge=null;view.item=null;render();};
+  $('review-reset').onclick=()=>{manualTurn=null;stop();Object.assign(view,{session:'all',range:[data.min,data.max],runIds:[],turn:null,cumulative:false,claim:null,level:null,basis:null,topic:null,item:null,pin:null,clock:data.max});state.file=null;state.edge=null;state.bundle=null;state.mapBox=null;$('review-session').value='all';render();};
+  $('clear-selection').onclick=()=>{stop();manualTurn=null;view.turn=null;view.cumulative=false;view.topic=null;view.runIds=[];view.claim=null;view.item=null;view.clock=view.range[1];state.file=null;state.edge=null;state.bundle=null;render();};
+  $('clear-file').onclick=()=>{state.file=null;state.edge=null;state.bundle=null;view.item=null;render();};
   $('map-fit').onclick=()=>{state.mapBox=null;render();};
   ['show-refs','show-types'].forEach(id=>$(id).onchange=render);
   document.querySelectorAll('[data-map-mode]').forEach(el=>el.onclick=()=>{state.mapMode=el.dataset.mapMode;state.mapBox=null;render();});
   $('map-zoom').onclick=()=>{$('map-zoom').closest('.panel').classList.toggle('is-zoomed');render();};
-  $('inspector-toggle').onclick=()=>{document.body.classList.toggle('inspector-collapsed');};
+  $('inspector-toggle').onclick=()=>{document.body.classList.toggle('inspector-collapsed');render();};
   $('time-all').onclick=()=>setRange(data.min,data.max);
   const jump=delta=>{const claims=data.claims.filter(c=>ReviewData.inRange(c,view));const current=claims.findIndex(c=>c.id===view.claim);const i=current<0?(delta>0?0:claims.length-1):current+delta;if(claims[i])selectClaim(claims[i].id);};
   $('time-previous').onclick=()=>jump(-1);$('time-next').onclick=()=>jump(1);
@@ -349,8 +366,8 @@
     view.clock=Math.min(view.range[1],turn.end);
     const scope=ReviewData.scoped(data,view);
     view.runIds=(view.cumulative?scope.filter(r=>r.time<=view.clock):scope.filter(r=>runTurn(r)===turn.key&&r.time<=view.clock)).map(r=>r.id);
-    view.claim=null;view.item=null;view.level=null;view.basis=null;
-    state.file=null;state.edge=null;state.selected=null;state.run=null;
+    view.claim=null;view.item=null;view.level=null;view.basis=null;view.topic=null;
+    state.file=null;state.edge=null;state.bundle=null;state.selected=null;state.run=null;
     render();
   }
   $('play-mode').onchange=e=>{
@@ -374,7 +391,7 @@
   };
   $('review-help').onclick=()=>$('review-guide').showModal();$('close-help').onclick=()=>$('review-guide').close();
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){stop();document.querySelector('.map-panel.is-zoomed')?.classList.remove('is-zoomed');hideTip();}const target=e.target.closest?.('[role=button]');if(target&&['Enter',' '].includes(e.key)){e.preventDefault();target.dispatchEvent(new MouseEvent('click',{bubbles:true}));}});
-  let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{renderTimeline();},120);});
-  root.researchWorkspace={model:M,data,turns:turnMap,view,state,render,selectRun,selectClaim,selectTurn,selectFile,setRange,ctx,aggregate:active};
+  let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{render();},120);});
+  root.researchWorkspace={model:M,data,turns:turnMap,view,state,render,selectRun,selectClaim,selectTurn,selectFile,selectTopic,selectBundle,setRange,ctx,aggregate:active};
   render();
 })(globalThis);

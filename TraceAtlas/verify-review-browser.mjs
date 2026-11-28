@@ -36,6 +36,37 @@ try{
  const initial=await evaluate(`({runs:researchWorkspace.data.runs.length,claims:researchWorkspace.data.claims.length,entries:researchWorkspace.aggregate().rows.length,files:document.querySelectorAll('#file-map [data-file]').length})`);
  assert.equal(initial.claims,235);assert.equal(initial.entries,41168);
  tests.push('Entire project dataset loads without a preselected case');
+
+
+ assert.equal(await evaluate('document.getElementById("map-terrain")'),null);
+ assert.equal(await evaluate('document.getElementById("map-size-metric")'),null);
+ assert.equal(await evaluate('document.querySelectorAll("#file-map circle").length'),0);
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,g=w.model.activeAreaGeometry;return [...document.querySelectorAll('.review-area-island')].every(e=>e.getAttribute('stroke-width')==='.65')&&[...document.querySelectorAll('[data-file]')].every(e=>Number(e.getAttribute('stroke-width'))===.65)&&g.cells.size===document.querySelectorAll('[data-file]').length&&g.maxError<=.021&&[...document.querySelectorAll('[data-file]')].every(e=>Math.abs(Number(e.dataset.targetArea)-(g.minimum+g.unit*Number(e.dataset.areaCount)))<.00001);})()`));
+ tests.push('Area and dominant color are encoded directly in file polygons, with one fixed count scale and no circle glyphs');
+ const originalGeometry=await evaluate('researchWorkspace.model.activeAreaGeometry.key');
+ await evaluate(`document.querySelector('[data-expand-tree="all"]').click()`);
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,files=w.model.atlas.groups.filter(g=>g.side==='test').flatMap(g=>g.files);return document.querySelectorAll('[data-tree-class]').length===w.model.atlas.groups.filter(g=>g.side==='test').length&&document.querySelectorAll('[data-tree-file]').length===files.length&&new Set([...document.querySelectorAll('[data-tree-file]')].map(e=>e.dataset.treeFile)).size===files.length;})()`));
+ assert.ok(await evaluate(`(()=>{const tree=document.querySelector('.review-file-tree'),map=document.querySelector('#file-map');return tree.scrollHeight>tree.clientHeight&&map.scrollHeight<=map.clientHeight+1;})()`));
+ assert.ok(await evaluate(`(()=>{const w=researchWorkspace,stats=PytestDepth.update(w.ctx()).stats;return [...document.querySelectorAll('[data-tree-class]')].every(c=>{const group=w.model.atlas.byGroup.get(c.dataset.treeClass),cells=[...c.querySelector('.tree-class-row').querySelectorAll('[data-tree-cell]')];return cells.every((el,i)=>Number(el.dataset.cellCount)===group.files.reduce((n,f)=>n+(stats.get(f.path.toLowerCase())?.histogram[i]||0),0));});})()`));
+ const treeFile=await evaluate(`(()=>{const w=researchWorkspace,row=[...document.querySelectorAll('[data-tree-file]')].find(e=>w.model.activeAreaGeometry.cells.has(e.dataset.treeFile));row.click();return row.dataset.treeFile;})()`);
+ assert.equal(await evaluate('researchWorkspace.state.file'),treeFile);assert.equal(await evaluate('document.getElementById("detail-kind").textContent'),'文件');
+ assert.equal(await evaluate('researchWorkspace.model.activeAreaGeometry.key'),originalGeometry);
+ await capture('review-area-file.png');
+ await evaluate(`document.getElementById('review-reset').click();document.querySelector('[data-expand-tree="none"]').click()`);
+ assert.equal(await evaluate('document.querySelectorAll("[data-tree-file]").length'),0);
+ const overviewLinks=await evaluate(`(()=>{const w=researchWorkspace,c=ReviewMapModel.content(w.aggregate(),null,w.model),b=ReviewMapModel.bundles(w.model,c);return {drawn:document.querySelectorAll('[data-pick-bundle]').length,expected:b.files.length,pairs:c.fileLinks.length};})()`);
+ assert.equal(overviewLinks.drawn,overviewLinks.expected);assert.ok(overviewLinks.drawn<overviewLinks.pairs);
+ const chosenBundle=await evaluate(`(()=>{const el=document.querySelector('[data-pick-bundle]');el.dispatchEvent(new MouseEvent('click',{bubbles:true}));return el.dataset.pickBundle;})()`);
+ assert.equal(await evaluate('researchWorkspace.state.bundle'),chosenBundle);assert.equal(await evaluate('document.getElementById("detail-kind").textContent'),'岛间关联');
+ await evaluate(`document.getElementById('review-reset').click()`);
+ tests.push('Expandable class-file index lists every test once, scrolls independently, reconciles statistics and selects the same file polygon');
+ const geometryBefore=await evaluate('researchWorkspace.model.activeAreaGeometry.key');
+ await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
+ assert.notEqual(await evaluate('researchWorkspace.model.activeAreaGeometry.key'),geometryBefore);
+ assert.ok(await evaluate(`researchWorkspace.model.activeAreaGeometry.maxError<=.021`));
+ tests.push('Selecting a run recomputes area from its actual counts instead of keeping the full-project shapes');
+ await evaluate(`document.getElementById('review-reset').click();document.querySelector('[data-expand-tree="all"]').click()`);
+ await capture('review-area-overview.png');
  const turnLink=await evaluate(`(()=>{
    const w=researchWorkspace,groups=new Map();
    for(const r of w.data.runs){const a=groups.get(r.turn)||[];a.push(r);groups.set(r.turn,a);}
@@ -45,7 +76,7 @@ try{
    return {key:claim.turn_id,selected:w.view.turn,ids:[...w.view.runIds].sort(),expected:expected.map(r=>r.id).sort(),count:agg.rows.length,expectedCount:expected.reduce((n,r)=>n+r.items.length,0),caption:document.getElementById('map-metric-caption').textContent,kind:document.getElementById('detail-kind').textContent,clock:w.view.clock,lastRun:Math.max(...expected.map(r=>r.time))};
  })()`);
  assert.equal(turnLink.selected,turnLink.key);assert.deepEqual(turnLink.ids,turnLink.expected);assert.equal(turnLink.count,turnLink.expectedCount);assert.ok(turnLink.caption.includes('当前轮次'));assert.equal(turnLink.kind,'对话轮次');assert.ok(turnLink.clock>=turnLink.lastRun);
- for(const mode of ['structure','depth','count']){
+ for(const mode of ['structure','size','count']){
    await evaluate(`document.querySelector('[data-map-mode="${mode}"]').click()`);
    assert.equal(await evaluate('researchWorkspace.view.turn'),turnLink.key);
    assert.equal(await evaluate('researchWorkspace.aggregate().rows.length'),turnLink.expectedCount);
@@ -64,7 +95,7 @@ try{
  assert.equal(await evaluate('researchWorkspace.view.turn'),null);assert.equal(await evaluate('researchWorkspace.aggregate().selected.length'),1);
  tests.push('A cycle click drills from turn aggregation into one run');
  const emptyTurn=await evaluate(`(()=>{const w=researchWorkspace,runTurns=new Set(w.data.runs.map(r=>r.turn)),c=w.data.claims.find(c=>!runTurns.has(c.turn_id));if(!c)return null;w.selectTurn(c.turn_id);return {rows:w.aggregate().rows.length,selected:w.aggregate().selected.length,caption:document.getElementById('detail').textContent};})()`);
- if(emptyTurn){assert.equal(emptyTurn.rows,0);assert.equal(emptyTurn.selected,0);assert.ok(emptyTurn.caption.includes('没有定位到测试运行'));tests.push('Turn without runs keeps execution evidence empty');}
+ if(emptyTurn){assert.ok(await evaluate('researchWorkspace.model.activeAreaGeometry.cells.size>0&&[...researchWorkspace.model.activeAreaGeometry.cells.values()].every(c=>c.count===0&&Math.abs(c.targetArea-researchWorkspace.model.activeAreaGeometry.minimum)<.00001)'));assert.equal(await evaluate('document.querySelectorAll("[data-content-link]").length'),0);assert.equal(emptyTurn.rows,0);assert.equal(emptyTurn.selected,0);assert.ok(emptyTurn.caption.includes('没有定位到测试运行'));tests.push('Turn without runs keeps execution evidence empty');}
  await evaluate(`researchWorkspace.selectTurn(${JSON.stringify(turnLink.key)});document.getElementById('clear-selection').click()`);
  assert.equal(await evaluate('researchWorkspace.view.turn'),null);assert.equal(await evaluate('researchWorkspace.aggregate().selected.length'),initial.runs);
  tests.push('Clearing turn selection restores the previous time-range overview');
@@ -103,10 +134,10 @@ try{
  tests.push('All conversation turns support previous/next navigation, including no-test turns, with bounded endpoints');
  await evaluate(`researchWorkspace.selectRun(researchWorkspace.data.runs.find(r=>r.items.length>15).id)`);
  assert.ok(await evaluate(`researchWorkspace.aggregate().selected.length===1&&document.getElementById('detail').textContent.includes('身份条目')`));
- await evaluate(`document.querySelector('[data-map-mode="depth"]').click()`);await wait(150);
+ await evaluate(`document.querySelector('[data-map-mode="size"]').click()`);await wait(150);
  assert.ok(await evaluate(`Boolean(document.querySelector('#file-map svg'))`));
  await capture('review-run.png');
- tests.push('Selecting a run and switching to 3D renders coordinated map and inspector');
+ tests.push('Selecting a run and switching to size encoding renders coordinated map and inspector');
  await evaluate(`researchWorkspace.selectClaim(researchWorkspace.data.claims.find(c=>!c.candidates.length).id)`);
  assert.equal(await evaluate('researchWorkspace.aggregate().rows.length'),0);
  assert.ok(await evaluate(`document.getElementById('detail').textContent.includes('未找到可关联候选')`));

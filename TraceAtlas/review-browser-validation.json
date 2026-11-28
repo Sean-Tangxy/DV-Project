@@ -2,6 +2,9 @@
   "tests": [
     "Five analysis regions remain within landscape viewport at four desktop sizes",
     "Entire project dataset loads without a preselected case",
+    "Area and dominant color are encoded directly in file polygons, with one fixed count scale and no circle glyphs",
+    "Expandable class-file index lists every test once, scrolls independently, reconciles statistics and selects the same file polygon",
+    "Selecting a run recomputes area from its actual counts instead of keeping the full-project shapes",
     "Selecting a dialogue turn links all its runs, map modes, cutoff time and inspector",
     "Turn navigation retains static timeline, overview and dropdown nodes while updating cursor and highlights",
     "A cycle click drills from turn aggregation into one run",
@@ -10,7 +13,7 @@
     "Per-turn playback aggregates every run of the active turn and coordinates the inspector",
     "Turn details retain the selected declaration and reported count",
     "All conversation turns support previous/next navigation, including no-test turns, with bounded endpoints",
-    "Selecting a run and switching to 3D renders coordinated map and inspector",
+    "Selecting a run and switching to size encoding renders coordinated map and inspector",
     "Declaration without candidates stays visible and does not display all runs as its evidence",
     "Time range selection reduces linked run scope",
     "Cached timeline rebuilds after range changes and delegated run clicks preserve selection",
@@ -26,7 +29,7 @@
     "runs": 888,
     "claims": 235,
     "entries": 41168,
-    "files": 183
+    "files": 197
   },
   "layouts": [
     {

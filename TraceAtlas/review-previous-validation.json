@@ -1,0 +1,247 @@
+{
+  "tests": [
+    "Five analysis regions remain within landscape viewport at four desktop sizes",
+    "Entire project dataset loads without a preselected case",
+    "Latest and previous versions link both ways with dataset preserved",
+    "Selecting a dialogue turn links all its runs, map modes, cutoff time and inspector",
+    "Turn navigation retains static timeline, overview and dropdown nodes while updating cursor and highlights",
+    "A cycle click drills from turn aggregation into one run",
+    "Turn without runs keeps execution evidence empty",
+    "Clearing turn selection restores the previous time-range overview",
+    "Per-turn playback aggregates every run of the active turn and coordinates the inspector",
+    "Turn details retain the selected declaration and reported count",
+    "All conversation turns support previous/next navigation, including no-test turns, with bounded endpoints",
+    "Selecting a run and switching to 3D renders coordinated map and inspector",
+    "Declaration without candidates stays visible and does not display all runs as its evidence",
+    "Time range selection reduces linked run scope",
+    "Cached timeline rebuilds after range changes and delegated run clicks preserve selection",
+    "Playback advances through conversation turns and pause cancels pending advance",
+    "Cumulative mode contains exactly prior runs in the selected range; switching modes pauses and restores per-turn scope",
+    "No-test turns stay empty in per-turn mode and retain only prior evidence in cumulative mode",
+    "File selection updates the same-unit evidence inspector",
+    "File context bubble follows map selection and clearing it preserves the draft",
+    "Dragging the actual overview applies a shared time interval",
+    "SSZX opens all 858 records and 41 checks with its own units and working selection"
+  ],
+  "initial": {
+    "runs": 888,
+    "claims": 235,
+    "entries": 41168,
+    "files": 183
+  },
+  "layouts": [
+    {
+      "width": 1600,
+      "height": 1000,
+      "overflowX": false,
+      "overflowY": false,
+      "panels": [
+        {
+          "name": "对话轮次详情",
+          "x": 8,
+          "y": 83,
+          "width": 396,
+          "height": 309.953125,
+          "bottom": 392.953125,
+          "right": 404
+        },
+        {
+          "name": "Agent 介入",
+          "x": 8,
+          "y": 400.953125,
+          "width": 396,
+          "height": 428.03125,
+          "bottom": 828.984375,
+          "right": 404
+        },
+        {
+          "name": "文件群岛",
+          "x": 412,
+          "y": 83,
+          "width": 839.375,
+          "height": 745.984375,
+          "bottom": 828.984375,
+          "right": 1251.375
+        },
+        {
+          "name": "选择详情",
+          "x": 1259.375,
+          "y": 83,
+          "width": 332.625,
+          "height": 745.984375,
+          "bottom": 828.984375,
+          "right": 1592
+        },
+        {
+          "name": "声明与执行",
+          "x": 8,
+          "y": 836.984375,
+          "width": 1584,
+          "height": 155,
+          "bottom": 991.984375,
+          "right": 1592
+        }
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "overflowX": false,
+      "overflowY": false,
+      "panels": [
+        {
+          "name": "对话轮次详情",
+          "x": 8,
+          "y": 83,
+          "width": 356,
+          "height": 267.953125,
+          "bottom": 350.953125,
+          "right": 364
+        },
+        {
+          "name": "Agent 介入",
+          "x": 8,
+          "y": 358.953125,
+          "width": 356,
+          "height": 370.03125,
+          "bottom": 728.984375,
+          "right": 364
+        },
+        {
+          "name": "文件群岛",
+          "x": 372,
+          "y": 83,
+          "width": 752.96875,
+          "height": 645.984375,
+          "bottom": 728.984375,
+          "right": 1124.96875
+        },
+        {
+          "name": "选择详情",
+          "x": 1132.96875,
+          "y": 83,
+          "width": 299.03125,
+          "height": 645.984375,
+          "bottom": 728.984375,
+          "right": 1432
+        },
+        {
+          "name": "声明与执行",
+          "x": 8,
+          "y": 736.984375,
+          "width": 1424,
+          "height": 155,
+          "bottom": 891.984375,
+          "right": 1432
+        }
+      ]
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "overflowX": false,
+      "overflowY": false,
+      "panels": [
+        {
+          "name": "对话轮次详情",
+          "x": 8,
+          "y": 83,
+          "width": 337.5,
+          "height": 223.546875,
+          "bottom": 306.546875,
+          "right": 345.5
+        },
+        {
+          "name": "Agent 介入",
+          "x": 8,
+          "y": 314.546875,
+          "width": 337.5,
+          "height": 302.453125,
+          "bottom": 617,
+          "right": 345.5
+        },
+        {
+          "name": "文件群岛",
+          "x": 353.5,
+          "y": 83,
+          "width": 713,
+          "height": 534,
+          "bottom": 617,
+          "right": 1066.5
+        },
+        {
+          "name": "选择详情",
+          "x": 1074.5,
+          "y": 83,
+          "width": 283.5,
+          "height": 534,
+          "bottom": 617,
+          "right": 1358
+        },
+        {
+          "name": "声明与执行",
+          "x": 8,
+          "y": 625,
+          "width": 1350,
+          "height": 135,
+          "bottom": 760,
+          "right": 1358
+        }
+      ]
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "overflowX": false,
+      "overflowY": false,
+      "panels": [
+        {
+          "name": "对话轮次详情",
+          "x": 8,
+          "y": 83,
+          "width": 316,
+          "height": 203.140625,
+          "bottom": 286.140625,
+          "right": 324
+        },
+        {
+          "name": "Agent 介入",
+          "x": 8,
+          "y": 294.140625,
+          "width": 316,
+          "height": 274.859375,
+          "bottom": 569,
+          "right": 324
+        },
+        {
+          "name": "文件群岛",
+          "x": 332,
+          "y": 83,
+          "width": 666.5625,
+          "height": 486,
+          "bottom": 569,
+          "right": 998.5625
+        },
+        {
+          "name": "选择详情",
+          "x": 1006.5625,
+          "y": 83,
+          "width": 265.4375,
+          "height": 486,
+          "bottom": 569,
+          "right": 1272
+        },
+        {
+          "name": "声明与执行",
+          "x": 8,
+          "y": 577,
+          "width": 1264,
+          "height": 135,
+          "bottom": 712,
+          "right": 1272
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

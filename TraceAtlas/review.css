@@ -35,3 +35,57 @@ main.research-grid{display:grid;flex:1;min-height:0;padding:8px;gap:8px;grid-tem
 
 #play-mode{font:inherit;font-size:10px;color:#69768b;border:1px solid var(--line);border-radius:2px;background:#fff;padding:1px 3px;min-height:22px;max-width:90px}
 .turn-nav button:disabled{opacity:.4;cursor:default}
+
+/* Flat explanatory map: topic ports and file nodes share one SVG coordinate system. */
+.review-map-flat{width:100%;height:100%;display:block;touch-action:none}
+.review-map-heading{font:600 18px "Segoe UI","Microsoft YaHei",sans-serif;fill:#4E5F76}
+.review-map-sub{font:13px "Segoe UI","Microsoft YaHei",sans-serif;fill:#8A96A6}
+.review-island{stroke-width:1;stroke-linejoin:round}
+.review-island-label{font:15px "Segoe UI","Microsoft YaHei",sans-serif;fill:#62738C}
+.review-topic-label{font:600 16px "Segoe UI","Microsoft YaHei",sans-serif;fill:#52647D}
+.review-topic-value{font:16px Consolas,monospace;fill:#677F9C}
+.review-topic-card{cursor:pointer}.review-topic-card:hover>rect{stroke:#6D85A4;fill:#F4F6FA}
+.review-count{font:8px Consolas,monospace;fill:#34445C;pointer-events:none}
+.map-file{cursor:pointer}.map-file:hover .review-cell-slot{stroke:#526D90;stroke-width:2}
+#map-size-metric{min-width:0;max-width:116px;border:1px solid #E1E6ED;border-radius:2px;background:#fff;color:#748297;font-size:10px;padding:2px}
+.map-size-key{display:flex;gap:12px;align-items:center;justify-content:center;flex:none;padding:3px 10px;font-size:9px;color:#8290A3;border-top:1px solid #F0F2F6;min-height:34px}
+.map-size-key[hidden]{display:none}.map-size-key svg{width:136px;height:30px;overflow:visible}.map-size-key text{font:8px Consolas,monospace;fill:#738297}
+.topic-detail-bars{display:flex;flex-direction:column;gap:7px;margin:16px 0}.topic-detail-bars>div{display:flex;gap:8px;align-items:center;font-size:10px}.topic-detail-bars span{width:78px;flex:none;color:#7D899B}.topic-detail-bars i{height:6px;width:calc(115px * var(--n) / var(--max));background:var(--color)}.topic-detail-bars b{font-weight:400;color:#8895A6}
+.topic-match{border-bottom:1px solid #EEF1F5;padding:8px 0}.topic-match span{font-size:9px;color:#7B91AF;background:#F0F4F8;padding:2px 4px}.topic-match p{font:10px/1.6 Consolas,monospace;color:#72839A;overflow-wrap:anywhere;margin-top:4px}
+
+.review-map-heading{font-size:calc(18px * var(--map-label-scale,1))}.review-map-sub{font-size:calc(13px * var(--map-label-scale,1))}.review-island-label{font-size:calc(15px * var(--map-label-scale,1))}.review-topic-label,.review-topic-value{font-size:calc(16px * var(--map-label-scale,1))}
+
+.review-topic-value{font-size:calc(14px * var(--map-label-scale,1))}
+
+/* Topic matrix stays at the left boundary of the file map. */
+.review-matrix-label{font:calc(14px * var(--map-label-scale,1)) "Segoe UI","Microsoft YaHei",sans-serif;fill:#617184}
+.review-matrix-col{font:12px Consolas,monospace;fill:#8A98A6}
+.review-topic-row{cursor:pointer}.review-topic-row:hover .review-row-background{fill:#F0F5F8;stroke:#5b99c5}
+.review-workspace .map-scroll{background:#FDFDFE}
+#map-metric-caption{display:none}
+
+#map-terrain{font:inherit;font-size:10px;min-width:0;max-width:85px;padding:2px 3px;color:#647991;border:1px solid #DFE7ED;border-radius:2px;background:#fff}
+.review-territory{cursor:pointer;stroke-linejoin:round}.review-territory:hover{fill-opacity:.4;stroke:#5b99c5;stroke-width:1.5}
+.review-node-hit{cursor:pointer}.map-file:hover .review-node-hit{stroke:#5b99c5;stroke-width:1;fill:#5b99c5;fill-opacity:.07}
+.review-error-dot{pointer-events:none}.review-map-flat{background:#FCFDFE}
+.research-grid .map-panel>.head{gap:6px}.map-modes button{padding:2px 5px}
+
+/* Voronoi remains the single geographic representation. */
+.review-territory{stroke-linejoin:round}.review-territory:hover{fill-opacity:.24;stroke:#527C9B;stroke-width:1.2}
+.review-coastlines{opacity:.9}.review-node{pointer-events:none}.review-island-label{paint-order:stroke;stroke:#FCFDFE;stroke-width:4px;stroke-linejoin:round}
+.review-bundle{cursor:pointer}.review-bundle:hover .review-bundle-stroke{stroke:#5b99c5;opacity:.9}
+.review-matrix-label{fill:#667989;font-size:calc(13px * var(--map-label-scale,1))}.review-matrix-col{font-size:13px;fill:#8495A3}
+.review-topic-row:hover .review-row-background{fill:#F0F5F8;stroke:none}.review-row-background{transition:fill .1s}
+.bundle-route{display:flex;align-items:center;gap:12px;font-size:12px;color:#576E88;overflow-wrap:anywhere}.bundle-route span{flex:1}.bundle-route i{font-style:normal;color:#9EB0C0}
+.bundle-pair{display:grid;grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr) 25px;align-items:center;gap:5px;border-bottom:1px solid #F0F3F6;padding:4px 0}.bundle-pair button{font-size:9px;overflow-wrap:anywhere}.bundle-pair>span,.bundle-pair>small{font-size:9px;color:#9BABBA}
+
+.review-tree-wrap{height:100%;display:flex;flex-direction:column;background:#FCFDFE;font:var(--tree-font,18px)/1.35 "Segoe UI","Microsoft YaHei",sans-serif;color:#627A8D;box-sizing:border-box}
+.tree-toolbar{display:flex;align-items:center;gap:5px;flex:none;height:42px;border-bottom:1px solid #E5EBF0;padding:0 4px;font-size:15px}
+.tree-toolbar>span:first-child{flex:1}.tree-columns{display:grid;grid-template-columns:repeat(6,18px);gap:4px}.tree-columns b{font:13px Consolas,monospace;text-align:center;font-weight:400;color:#8F9DAA}
+.tree-toolbar button{font:19px/1 Consolas,monospace;border:0;background:transparent;color:#8499AA;padding:1px 3px;min-height:0}
+.review-file-tree{min-height:0;flex:1;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain;padding:4px 3px 20px 0}
+.review-file-tree button{font:inherit;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:0;border-radius:2px;background:transparent;text-align:left;color:inherit;min-height:35px;padding:5px 4px;white-space:nowrap;cursor:pointer}
+.tree-class-row{margin-top:7px;font-weight:600!important;background:#F1F5F8!important}.tree-class-row small{font:13px Consolas,monospace;color:#9AACBA;margin-left:6px}
+.tree-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.tree-file-row .tree-file-name{padding-left:14px;font-size:calc(var(--tree-font) * .85)}.tree-file-row:hover,.tree-file-row.is-selected{background:#EAF2F8!important;color:#476C8B!important}.tree-file-row.no-evidence .tree-file-name{color:#A8B4BF}
+.tree-heat{display:grid;grid-template-columns:repeat(6,18px);gap:4px;flex:none}.tree-heat i{display:block;height:16px;border-radius:2px}
+.review-area-island{pointer-events:none}.review-error-mark{pointer-events:none}.review-count{font:12px Consolas,monospace;fill:#365267;paint-order:stroke;stroke:#fff;stroke-width:2px}

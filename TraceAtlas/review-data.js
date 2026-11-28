@@ -44,7 +44,7 @@
   function inRange(r,view){return r.time>=view.range[0]&&r.time<=view.range[1]&&(view.session==='all'||r.session===view.session);}
   function scoped(data,view){return data.runs.filter(r=>inRange(r,view));}
   function matchesFile(item,file){return !file||item.file.toLowerCase()===file||Object.keys(item.targets).some(p=>p.toLowerCase()===file);}
-  function matches(item,view){return (view.level==null||(item.level??5)===view.level)&&(view.basis==null||item.basis===view.basis)&&(!view.item||item.identity===view.item);}
+  function matches(item,view){return (!view.topic||item.topics?.some(t=>t.id===view.topic))&&(view.level==null||(item.level??5)===view.level)&&(view.basis==null||item.basis===view.basis)&&(!view.item||item.identity===view.item);}
   function aggregate(data,view,file=null){
     const scope=scoped(data,view),ids=new Set(view.runIds),selected=ids.size||view.turn?scope.filter(r=>ids.has(r.id)):scope;
     const grid=Array.from({length:6},()=>[0,0,0]),outcomes=Array.from({length:6},()=>({pass:0,fail:0,error:0,unknown:0,skipped:0,other:0}));
